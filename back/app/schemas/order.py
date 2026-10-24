@@ -15,11 +15,19 @@ class CheckoutItem(BaseModel):
 class CheckoutRequest(BaseModel):
     items: list[CheckoutItem] = Field(min_length=1)
     shipping_address: str = Field(min_length=10, max_length=400)
+    shipping_name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    shipping_phone: Optional[str] = Field(default=None, min_length=6, max_length=30)
+    shipping_region: Optional[str] = Field(default=None, max_length=80)
+    shipping_comuna: Optional[str] = Field(default=None, max_length=80)
+    shipping_notes: Optional[str] = Field(default=None, max_length=400)
 
 
 class OrderItemOut(BaseModel):
     id: int
     product_id: str
+    sku: Optional[str] = None
+    title: Optional[str] = None
+    cover_url: Optional[str] = None
     quantity: int
     unit_price: Decimal
 
@@ -34,6 +42,10 @@ class OrderOut(BaseModel):
     shipping: Decimal
     total: Decimal
     shipping_address: Optional[str]
+    shipping_name: Optional[str] = None
+    shipping_phone: Optional[str] = None
+    shipping_region: Optional[str] = None
+    shipping_comuna: Optional[str] = None
     shipping_notes: Optional[str]
     created_at: datetime
     updated_at: datetime

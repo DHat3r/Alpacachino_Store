@@ -24,6 +24,10 @@ celery_app.conf.update(
             "task": "app.tasks.ping",
             "schedule": 300.0,
         },
+        "liberar-reservas-vencidas": {
+            "task": "app.tasks.expire_reservations",
+            "schedule": 60.0,
+        },
         "reporte-diario": {
             "task": "app.tasks.daily_report",
             "schedule": crontab(hour=8, minute=0),

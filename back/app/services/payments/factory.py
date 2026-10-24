@@ -5,8 +5,18 @@ from app.services.payments import mercadopago, webpay
 
 
 def create_payment_preference(order) -> dict:
-    """Create a payment preference for the configured provider."""
+    """Create a payment preference for the configured provider.
+
+    ``manual`` (transferencia) no crea preferencia: devuelve los datos
+    bancarios del vendedor para mostrarlos en el checkout.
+    """
     provider = settings.PAYMENT_PROVIDER.lower()
+    if provider == "manual":
+        return {
+            "init_point": None,
+            "external_id": None,
+            "instructions": settings.manual_payment_instructions,
+        }
     if provider == "webpay":
         return webpay.create_transaction(order)
     return mercadopago.create_preference(order)

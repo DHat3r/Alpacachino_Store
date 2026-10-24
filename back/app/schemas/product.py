@@ -22,6 +22,12 @@ class CategoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class ProductCreate(BaseModel):
     sku: str = Field(min_length=1, max_length=40)
     title: str = Field(min_length=1, max_length=200)
@@ -61,6 +67,8 @@ class ProductOut(BaseModel):
     category: Optional[CategoryOut]
     inventory_quantity: int = 0
     inventory_reserved: int = 0
+    rating_avg: Optional[float] = None
+    reviews_count: int = 0
     is_active: bool
     created_at: datetime
 

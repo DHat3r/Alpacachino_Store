@@ -3,13 +3,14 @@
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Text, ForeignKey, DateTime, func, CheckConstraint, Boolean, Index
+from sqlalchemy import String, Text, ForeignKey, DateTime, func, CheckConstraint, Boolean, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.models.user import User
+    from app.models.product import Product
 
 
 class ForumPost(Base):
@@ -33,10 +34,21 @@ class ForumPost(Base):
         back_populates="post", cascade="all, delete-orphan", passive_deletes=True
     )
     author: Mapped["User"] = relationship(foreign_keys=[author_id], lazy="joined")
+    product: Mapped["Product | None"] = relationship(
+        foreign_keys=[product_id], lazy="joined"
+    )
 
     __table_args__ = (
         CheckConstraint("rating IS NULL OR (rating BETWEEN 1 AND 5)", name="ck_forum_post_rating"),
         Index("ix_forum_posts_author_created", "author_id", "created_at"),
+        # Una sola reseña por usuario y producto (las discusiones no llevan rating).
+        Index(
+            "uq_forum_review_author_product",
+            "author_id",
+            "product_id",
+            unique=True,
+            postgresql_where=text("rating IS NOT NULL AND product_id IS NOT NULL"),
+        ),
     )
 
     def __repr__(self) -> str:

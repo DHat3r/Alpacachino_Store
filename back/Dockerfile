@@ -24,7 +24,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 # ─────────────────────────── Producción ───────────────────────────
 FROM base AS production
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt gunicorn
+RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 RUN useradd -m -u 10001 appuser \
  && sed -i 's/\r$//' scripts/start.sh \

@@ -22,9 +22,9 @@ def create_preference(order) -> dict:
         "external_reference": str(order.id),
         "notification_url": f"{settings.PUBLIC_API_URL}/api/payments/webhook/mercadopago",
         "back_urls": {
-            "success": f"{settings.PUBLIC_SITE_URL}/checkout/exito",
-            "failure": f"{settings.PUBLIC_SITE_URL}/checkout/error",
-            "pending": f"{settings.PUBLIC_SITE_URL}/checkout/pendiente",
+            "success": f"{settings.PUBLIC_SITE_URL}/checkout?status=exito",
+            "failure": f"{settings.PUBLIC_SITE_URL}/checkout?status=error",
+            "pending": f"{settings.PUBLIC_SITE_URL}/checkout?status=pendiente",
         },
         "auto_return": "approved",
         "statement_descriptor": "ALPACACHINO",
@@ -49,13 +49,37 @@ def get_payment(payment_id: str) -> dict:
     return result["response"]
 
 
-def verify_webhook_signature(payload: bytes, signature: str) -> bool:
-    """Verify MercadoPago webhook signature (x-signature header)."""
-    import hmac
+def verify_webhook_signature(
+    data_id: str, request_id: str | None, signature: str
+) -> bool:
+    """Verifica la firma `x-signature` de MercadoPago.
+
+    Formato del header: ``ts=1704908010,v1=hash``.
+    El hash es HMAC-SHA256 del *manifest*::
+
+        id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+
+    con el secreto del webhook como clave (documentación oficial).
+    """
     import hashlib
+    import hmac
+
+    if not signature or not settings.MP_WEBHOOK_SECRET:
+        return False
+
+    parts: dict[str, str] = {}
+    for chunk in signature.split(","):
+        key, _, value = chunk.strip().partition("=")
+        if key and value:
+            parts[key] = value
+
+    ts = parts.get("ts")
+    received = parts.get("v1")
+    if not ts or not received:
+        return False
+
+    manifest = f"id:{data_id};request-id:{request_id or ''};ts:{ts};"
     expected = hmac.new(
-        settings.MP_WEBHOOK_SECRET.encode(),
-        payload,
-        hashlib.sha256
+        settings.MP_WEBHOOK_SECRET.encode(), manifest.encode(), hashlib.sha256
     ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+    return hmac.compare_digest(expected, received)

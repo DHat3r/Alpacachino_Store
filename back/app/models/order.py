@@ -4,6 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from sqlalchemy import (
     String, Numeric, ForeignKey, Enum, DateTime, func, Index, CheckConstraint
 )
@@ -12,6 +13,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 from app.models.product import Product
+
+if TYPE_CHECKING:  # pragma: no cover
+    from app.models.user import User
 
 
 class OrderStatus(str, enum.Enum):
@@ -34,6 +38,10 @@ class Order(Base):
     shipping: Mapped[Decimal] = mapped_column(Numeric(12, 0), default=0, nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 0), nullable=False)
     shipping_address: Mapped[str | None] = mapped_column(String(400), nullable=True)
+    shipping_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    shipping_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    shipping_region: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    shipping_comuna: Mapped[str | None] = mapped_column(String(80), nullable=True)
     shipping_notes: Mapped[str | None] = mapped_column(String(400), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -44,6 +52,7 @@ class Order(Base):
         back_populates="order", cascade="all, delete-orphan", passive_deletes=True
     )
     payments: Mapped[list["Payment"]] = relationship(back_populates="order")
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
     __table_args__ = (
         Index("ix_orders_user_status", "user_id", "status"),

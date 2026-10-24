@@ -62,10 +62,30 @@ class Settings(BaseSettings):
     # ── Correo ───────────────────────────────────────────────
     SMTP_HOST: str = "mailhog"
     SMTP_PORT: int = 1025
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_STARTTLS: bool = False
     MAIL_FROM: str = "ventas@alpacachino.com"
 
     # ── Negocio ──────────────────────────────────────────────
     STOCK_RESERVATION_MINUTES: int = 15
+    SHIPPING_COST: int = 3500
+    FREE_SHIPPING_FROM: int = 30000
+    CURRENCY: str = "CLP"
+    TERMS_VERSION: str = "2026-10"
+    SELLER_NAME: str = "AlpacachinoStore"
+    SELLER_EMAIL: str = "ventas@alpacachino.com"
+    SELLER_PHONE: str = ""
+    # Datos para el pago manual por transferencia (PAYMENT_PROVIDER=manual).
+    BANK_NAME: str = ""
+    BANK_ACCOUNT_TYPE: str = "Cuenta corriente"
+    BANK_ACCOUNT_NUMBER: str = ""
+    BANK_HOLDER: str = ""
+    BANK_RUT: str = ""
+    BANK_EMAIL: str = ""
+    # Portadas: tamaño máximo aceptado y bucket de Supabase Storage.
+    MAX_COVER_MB: int = 2
+    SUPABASE_STORAGE_BUCKET: str = "product-covers"
 
     @property
     def database_url(self) -> str:
@@ -102,6 +122,24 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def manual_payment_instructions(self) -> dict:
+        """Datos que el cliente necesita para transferir (pago manual)."""
+        return {
+            "provider": "manual",
+            "bank": self.BANK_NAME,
+            "account_type": self.BANK_ACCOUNT_TYPE,
+            "account_number": self.BANK_ACCOUNT_NUMBER,
+            "holder": self.BANK_HOLDER,
+            "rut": self.BANK_RUT,
+            "email": self.BANK_EMAIL or self.SELLER_EMAIL,
+            "deadline_hours": 24,
+            "note": (
+                "Transfiere el total y envía el comprobante por correo indicando "
+                "el número de pedido. El pedido queda reservado hasta el vencimiento."
+            ),
+        }
 
 
 @lru_cache

@@ -9,6 +9,9 @@ from app.db.session import get_db
 from app.models.user import User, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/auth/login", auto_error=False
+)
 
 
 def get_current_user(
@@ -40,6 +43,34 @@ def get_current_user(
 def get_current_active_user(user: User = Depends(get_current_user)) -> User:
     """Alias for clarity."""
     return user
+
+
+def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Devuelve el usuario si hay token válido; si no, ``None``.
+
+    Se usa en rutas públicas que esconden contenido según el rol (foro).
+    """
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        user_id = int(payload["sub"])
+    except (ValueError, KeyError):
+        return None
+
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        return None
+    return user
+
+
+def is_staff(user: User | None) -> bool:
+    return bool(user and user.role in (UserRole.ADMIN, UserRole.MODERATOR))
 
 
 def require_roles(*roles: UserRole):

@@ -3,6 +3,16 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
+import uuid
+
+
+class ProductBrief(BaseModel):
+    id: uuid.UUID
+    sku: str
+    title: str
+    cover_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PostCreate(BaseModel):
@@ -24,6 +34,7 @@ class PostOut(BaseModel):
     title: str
     body: str
     product_id: Optional[str]
+    product: Optional[ProductBrief] = None
     rating: Optional[int]
     is_hidden: bool
     is_pinned: bool
@@ -35,7 +46,18 @@ class PostOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PostPage(BaseModel):
+    items: list[PostOut]
+    total: int
+    page: int
+    size: int
+
+
 class CommentCreate(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class CommentUpdate(BaseModel):
     body: str = Field(min_length=1)
 
 

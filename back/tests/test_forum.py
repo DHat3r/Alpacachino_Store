@@ -17,7 +17,7 @@ def _post_payload(**overrides) -> dict:
 def test_listar_posts_publico(client: TestClient):
     res = client.get("/api/forum/posts")
     assert res.status_code == 200
-    assert res.json() == []
+    assert res.json() == {"items": [], "total": 0, "page": 1, "size": 20}
 
 
 def test_crear_post_requiere_login(client: TestClient):
@@ -32,7 +32,8 @@ def test_crear_post_y_listarlo(client: TestClient, auth_headers, customer):
     assert post["comments_count"] == 0
 
     lista = client.get("/api/forum/posts")
-    assert lista.json()[0]["title"] == "Mi reseña de One Piece"
+    assert lista.json()["items"][0]["title"] == "Mi reseña de One Piece"
+    assert lista.json()["total"] == 1
 
 
 def test_titulo_muy_corto_rechazado(client: TestClient, auth_headers):
@@ -142,7 +143,8 @@ def test_autor_edita_y_borra_su_post(client: TestClient, auth_headers):
     assert borrado.status_code == 204
 
     # Soft delete: no aparece en el listado público
-    assert client.get("/api/forum/posts").json() == []
+    assert client.get("/api/forum/posts").json()["items"] == []
+    assert client.get(f"/api/forum/posts/{post['id']}").status_code == 404
 
 
 def test_reportar_post_y_no_duplicar(client: TestClient, auth_headers):
@@ -175,7 +177,8 @@ def test_moderador_oculta_post(
     )
     assert res.status_code == 200
     assert res.json()["is_hidden"] is True
-    assert client.get("/api/forum/posts").json() == []
+    assert client.get("/api/forum/posts").json()["items"] == []
+    assert client.get(f"/api/forum/posts/{post['id']}").status_code == 404
 
 
 def test_cliente_no_puede_moderar(client: TestClient, auth_headers):

@@ -92,6 +92,31 @@ def release_stock(db: Session, product_id: str, qty: int) -> None:
     db.add(movement)
 
 
+def restore_sold_stock(db: Session, product_id: str, qty: int, reference: str) -> None:
+    """
+    Return units to available stock after cancelling an already paid order.
+    The reservation was consolidated at payment time, so only ``quantity``
+    needs to grow; the movement keeps the audit trail.
+    """
+    db.execute(
+        text("""
+            UPDATE inventory
+               SET quantity = quantity + :qty,
+                   updated_at = now()
+             WHERE product_id = :pid
+        """),
+        {"qty": qty, "pid": product_id},
+    )
+
+    movement = InventoryMovement(
+        product_id=product_id,
+        delta=qty,
+        reason="restock",
+        reference=reference,
+    )
+    db.add(movement)
+
+
 def adjust_stock(db: Session, product_id: str, delta: int, reason: str, reference: str, user_id: int | None = None) -> Inventory:
     """
     Manual stock adjustment by admin (restock, correction, etc.).

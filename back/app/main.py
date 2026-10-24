@@ -18,6 +18,7 @@ from app.api.routes import (
     forum,
     webhooks,
     health,
+    config,
 )
 
 
@@ -74,7 +75,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Register all routers with /api prefix
-for router in (auth, products, orders, payments, admin, forum, webhooks, health):
+for router in (auth, products, orders, payments, admin, forum, webhooks, health, config):
     app.include_router(router.router, prefix="/api")
 
 

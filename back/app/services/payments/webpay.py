@@ -3,15 +3,23 @@
 from transbank.webpay.webpay_plus.transaction import Transaction
 from app.core.config import settings
 
-# Transbank SDK v6: build_for_integration only takes commerce_code and api_key
-tx = Transaction.build_for_integration(
-    commerce_code=settings.WEBPAY_COMMERCE_CODE,
-    api_key=settings.WEBPAY_API_KEY,
-)
+
+def _transaction():
+    """Devuelve la transacción según WEBPAY_ENV (integration | production)."""
+    if settings.WEBPAY_ENV.lower() == "production":
+        return Transaction.build_for_production(
+            commerce_code=settings.WEBPAY_COMMERCE_CODE,
+            api_key=settings.WEBPAY_API_KEY,
+        )
+    return Transaction.build_for_integration(
+        commerce_code=settings.WEBPAY_COMMERCE_CODE,
+        api_key=settings.WEBPAY_API_KEY,
+    )
 
 
 def create_transaction(order) -> dict:
-    """Create a Webpay Plus transaction."""
+    """Crea una transacción Webpay Plus y devuelve URL + token."""
+    tx = _transaction()
     response = tx.create(
         buy_order=f"ORD-{order.id}",
         session_id=f"SES-{order.id}",
@@ -26,12 +34,10 @@ def create_transaction(order) -> dict:
 
 
 def confirm_transaction(token: str) -> dict:
-    """Confirm a Webpay transaction."""
-    response = tx.commit(token)
-    return response
+    """Confirma (commit) una transacción Webpay."""
+    return _transaction().commit(token)
 
 
 def get_transaction_status(token: str) -> dict:
-    """Get Webpay transaction status."""
-    response = tx.status(token)
-    return response
+    """Consulta el estado de una transacción Webpay."""
+    return _transaction().status(token)
