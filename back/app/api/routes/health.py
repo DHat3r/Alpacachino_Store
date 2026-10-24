@@ -4,13 +4,14 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from app.db.session import engine
+from app.services import keepalive
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
 def health():
-    """Full health check: API + Database."""
+    """Full health check: API + Database + latido de stock."""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -22,6 +23,7 @@ def health():
         "status": "ok" if db_status == "ok" else "degraded",
         "database": db_status,
         "version": "0.1.0",
+        "keepalive": keepalive.snapshot(),
     }
 
 

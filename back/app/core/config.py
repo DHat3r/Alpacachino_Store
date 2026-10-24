@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "alpacachino"
     POSTGRES_HOST: str = "db"
     POSTGRES_PORT: int = 5432
+    # Latido contra la base para que Supabase no cierre la sesión ociosa.
+    # 0 lo desactiva (lo usan las pruebas).
+    DB_KEEPALIVE_SECONDS: int = 5
+
+    # ── Supabase (API, no la base de datos) ──
+    # La base se conecta con DATABASE_URL; estas claves son para la API
+    # (PostgREST/Auth/Storage) y para el cliente del frontend.
+    SUPABASE_URL: str = ""
+    SUPABASE_PUBLISHABLE_KEY: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+    SUPABASE_JWKS_URL: str = ""
 
     # ── Redis / Celery ───────────────────────────────────────
     REDIS_URL: str = "redis://redis:6379/0"

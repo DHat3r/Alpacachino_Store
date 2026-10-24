@@ -51,6 +51,29 @@ interface Page<T> {
   size: number;
 }
 
+interface Health {
+  status: string;
+  database: string;
+  version: string;
+  keepalive: {
+    enabled: boolean;
+    interval_seconds: number;
+    checks: number;
+    failures: number;
+    last_check_at: string | null;
+    last_ok_at: string | null;
+    last_error: string | null;
+    stock: { products: number; available: number; inconsistent: number };
+    supabase: {
+      configured: boolean;
+      ok: boolean | null;
+      latency_ms: number | null;
+      last_check_at: string | null;
+      last_error: string | null;
+    };
+  };
+}
+
 type Tab = "resumen" | "inventario" | "pedidos" | "usuarios";
 
 const ORDER_STATUSES = [
@@ -156,13 +179,93 @@ function DashboardTab() {
   ];
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {cards.map((c) => (
-        <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <p className="text-sm text-gray-500 mb-2">{c.label}</p>
-          <p className={`text-3xl font-bold ${c.accent}`}>{c.value}</p>
+    <div className="space-y-8">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((c) => (
+          <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <p className="text-sm text-gray-500 mb-2">{c.label}</p>
+            <p className={`text-3xl font-bold ${c.accent}`}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <SystemStatus />
+    </div>
+  );
+}
+
+/** Estado del sistema, refrescado cada 5 s (latido de base/Supabase). */
+function SystemStatus() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["system-health"],
+    queryFn: async () => {
+      const res = await api.get("/health");
+      return res.data as Health;
+    },
+    refetchInterval: 5000,
+  });
+
+  if (isLoading) return <p className="text-sm text-gray-500">Consultando estado del sistema...</p>;
+  if (error || !data) return <p className="text-sm text-red-600">No se pudo consultar /api/health</p>;
+
+  const ka = data.keepalive;
+  const sb = ka.supabase;
+  const sbLabel = !sb.configured
+    ? "No configurado"
+    : sb.ok === null
+      ? "Sin datos"
+      : sb.ok
+        ? `OK · ${sb.latency_ms ?? "?"} ms`
+        : "Error";
+  const sbColor = !sb.configured
+    ? "text-gray-500"
+    : sb.ok
+      ? "text-green-600"
+      : sb.ok === false
+        ? "text-red-600"
+        : "text-gray-500";
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-medium text-gray-900">Estado del sistema</h3>
+        <span className="text-xs text-gray-400">
+          Latido cada {ka.interval_seconds} s · actualizado{" "}
+          {ka.last_check_at ? new Date(ka.last_check_at).toLocaleTimeString("es-CL") : "—"}
+        </span>
+      </div>
+
+      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+        <div>
+          <dt className="text-gray-500">API</dt>
+          <dd className={`font-semibold ${data.status === "ok" ? "text-green-600" : "text-yellow-600"}`}>
+            {data.status}
+          </dd>
         </div>
-      ))}
+        <div>
+          <dt className="text-gray-500">Base de datos</dt>
+          <dd className={`font-semibold ${data.database === "ok" ? "text-green-600" : "text-red-600"}`}>
+            {data.database}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">Supabase</dt>
+          <dd className={`font-semibold ${sbColor}`}>{sbLabel}</dd>
+          {sb.last_error && <p className="text-xs text-gray-400 mt-1">{sb.last_error}</p>}
+        </div>
+        <div>
+          <dt className="text-gray-500">Stock disponible</dt>
+          <dd className="font-semibold text-gray-900">
+            {ka.stock.available} u. en {ka.stock.products} producto(s)
+          </dd>
+        </div>
+      </dl>
+
+      {ka.failures > 0 && (
+        <p className="mt-4 text-xs text-red-600">
+          {ka.failures} latido(s) fallido(s) de {ka.checks}. Último error: {ka.last_error}
+        </p>
+      )}
     </div>
   );
 }

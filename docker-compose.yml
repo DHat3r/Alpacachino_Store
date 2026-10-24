@@ -112,6 +112,7 @@ services:
     environment:
       # Vacío = el cliente usa el proxy de Vite (/api → http://api:8000).
       # No apuntar a localhost:8000: ese puerto está ocupado en este equipo.
+      # Las claves de Supabase NO se pasan al navegador: solo las usa el backend.
       VITE_API_URL: ""
     volumes:
       - ./front:/app

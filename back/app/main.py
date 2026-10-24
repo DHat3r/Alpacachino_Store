@@ -1,11 +1,14 @@
 """Punto de entrada de la API AlpacachinoStore."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.rate_limit import init_limiter
+from app.services.keepalive import start_keepalive, stop_keepalive
 from app.api.routes import (
     auth,
     products,
@@ -17,12 +20,24 @@ from app.api.routes import (
     health,
 )
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Ciclo de vida: mantiene viva la conexión a la base (Supabase)."""
+    keepalive_task = start_keepalive()
+    try:
+        yield
+    finally:
+        await stop_keepalive(keepalive_task)
+
+
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
     version="0.1.0",
     description="API del PMV de AlpacachinoStore (e-commerce + foro comunitario).",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 # Rate limiting global (SlowAPI). Los endpoints sensibles lo aplican con @limiter.limit

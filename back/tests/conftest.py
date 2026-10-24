@@ -27,6 +27,9 @@ from app.models.product import Category, Inventory, Product
 from app.models.user import User, UserRole
 from app.core.security import hash_password
 
+# Las pruebas no deben consultar la base de desarrollo con el latido de stock.
+settings.DB_KEEPALIVE_SECONDS = 0
+
 
 TEST_DB = os.getenv("TEST_POSTGRES_DB", f"{settings.POSTGRES_DB}_test")
 

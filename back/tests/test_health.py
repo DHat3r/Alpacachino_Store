@@ -17,6 +17,15 @@ def test_root_ok(client: TestClient):
     assert res.json()["app"]
 
 
+def test_health_incluye_estado_del_latido(client: TestClient):
+    body = client.get("/api/health").json()
+    ka = body["keepalive"]
+    # En pruebas está desactivado para no consultar la base de desarrollo.
+    assert ka["enabled"] is False
+    assert ka["interval_seconds"] == 0
+    assert ka["stock"]["inconsistent"] == 0
+
+
 def test_security_headers(client: TestClient):
     res = client.get("/api/health")
     assert res.headers["X-Content-Type-Options"] == "nosniff"

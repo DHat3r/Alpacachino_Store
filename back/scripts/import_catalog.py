@@ -5,6 +5,9 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+# Permite `python scripts/import_catalog.py` desde /app (sys.path[0] es scripts/).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import pandas as pd
 from sqlalchemy import select
 
