@@ -1,3 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+ * Tailwind CSS v4 usa sintaxis CSS-first: una sola importación genera el
+ * preflight y todas las utilidades detectadas en el código.
+ * (Antes estaba con directivas de v3 — @tailwind base/components/utilities —
+ * que v4 ignora, por eso la app se veía sin estilos.)
+ */
+@import "tailwindcss";
