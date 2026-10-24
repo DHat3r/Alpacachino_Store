@@ -1,9 +1,12 @@
-import { useParams, Link, useLocation } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation, useParams } from "react-router-dom";
 
+import Alpaca from "../components/Alpaca";
+import { Aviso, Cargando, EstadoPedido, Vacio } from "../components/ui";
 import { api } from "../api/client";
 import { useConfig, type PaymentInstructions } from "../api/config";
+import { clp, faltan, fechaHora } from "../lib/format";
 
 interface OrderItem {
   id: number;
@@ -41,7 +44,7 @@ export default function OrderDetail() {
   const { data: config } = useConfig();
   const [error, setError] = useState("");
 
-  const { data: order, isLoading, error: queryError } = useQuery({
+  const { data: pedido, isLoading, error: queryError } = useQuery({
     queryKey: ["order", id],
     queryFn: async () => {
       const res = await api.get(`/orders/${id}`);
@@ -50,7 +53,7 @@ export default function OrderDetail() {
     enabled: !!id,
   });
 
-  const cancelMutation = useMutation({
+  const cancelar = useMutation({
     mutationFn: async () => {
       const res = await api.post(`/orders/${id}/cancel`);
       return res.data as Order;
@@ -60,182 +63,197 @@ export default function OrderDetail() {
       queryClient.invalidateQueries({ queryKey: ["order", id] });
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
     },
-    onError: (err: any) => {
-      const detail = err.response?.data?.detail;
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+        ?.detail;
       setError(typeof detail === "string" ? detail : "No pudimos cancelar el pedido.");
     },
   });
 
-  if (isLoading) return <div className="p-6">Cargando...</div>;
-  if (queryError || !order)
-    return <div className="p-6 text-center text-red-600">Pedido no encontrado</div>;
+  if (isLoading) return <Cargando texto="Cargando el pedido" />;
+  if (queryError || !pedido)
+    return (
+      <div className="contenedor py-16">
+        <Vacio
+          titulo="No encontramos este pedido"
+          accion={{ a: "/mis-pedidos", texto: "Ver mis pedidos" }}
+        />
+      </div>
+    );
 
-  const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    paid: "bg-green-100 text-green-800",
-    failed: "bg-red-100 text-red-800",
-    expired: "bg-gray-100 text-gray-800",
-    cancelled: "bg-gray-100 text-gray-800",
-    shipped: "bg-blue-100 text-blue-800",
-    delivered: "bg-purple-100 text-purple-800",
-  };
-
-  const instrucciones =
+  const instrucciones: PaymentInstructions | null | undefined =
     (location.state as { paymentInstructions?: PaymentInstructions } | null)
       ?.paymentInstructions ??
-    (order.status === "pending" ? config?.payment_instructions : null);
+    (pedido.status === "pending" ? config?.payment_instructions : null);
+
+  const restante = faltan(pedido.expires_at);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Detalle del Pedido #{order.id}</h1>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || "bg-gray-100 text-gray-800"}`}>
-          {order.status}
-        </span>
+    <div className="contenedor py-10">
+      <nav className="mb-6 text-sm text-tinta-suave">
+        <Link to="/mis-pedidos" className="hover:text-morado">
+          Mis pedidos
+        </Link>
+        <span className="px-2 text-humo">/</span>
+        <span>Pedido #{pedido.id}</span>
+      </nav>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="font-display text-3xl font-extrabold sm:text-4xl">
+          Pedido #{pedido.id}
+        </h1>
+        <EstadoPedido estado={pedido.status} />
       </div>
 
-      {order.status === "pending" && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-100 rounded-lg p-4 text-sm text-yellow-800">
-          Reservamos el stock de tu pedido
-          {order.expires_at && (
-            <> hasta el {new Date(order.expires_at).toLocaleString("es-CL")}</>
-          )}
-          {" "}— si no se confirma el pago, se liberará automáticamente.
+      {pedido.status === "pending" && (
+        <div className="mt-6">
+          <Aviso tono="atencion">
+            Tenemos el stock reservado
+            {restante ? <> por {restante} más</> : null}
+            {pedido.expires_at && <> (hasta el {fechaHora(pedido.expires_at)})</>}. Si no
+            recibimos el pago, el pedido se libera automáticamente.
+          </Aviso>
         </div>
       )}
 
-      {instrucciones && order.status === "pending" && (
-        <div className="mb-6 bg-white border border-indigo-100 rounded-lg p-5">
-          <h2 className="font-semibold text-gray-900 mb-2">Datos para la transferencia</h2>
-          <dl className="grid gap-2 sm:grid-cols-2 text-sm text-gray-700">
-            {instrucciones.bank && (
-              <div><dt className="text-gray-500">Banco</dt><dd>{instrucciones.bank}</dd></div>
-            )}
+      {instrucciones && pedido.status === "pending" && (
+        <section className="panel mt-6 overflow-hidden">
+          <div className="bg-morado px-6 py-4">
+            <h2 className="font-display text-lg font-extrabold text-white">
+              Transfiere {clp(pedido.total)}
+            </h2>
+            <p className="mt-0.5 text-sm text-white/75">
+              Usa el número de pedido #{pedido.id} como comentario.
+            </p>
+          </div>
+          <dl className="grid gap-x-8 gap-y-4 p-6 sm:grid-cols-2">
+            {instrucciones.bank && <Linea termino="Banco" valor={instrucciones.bank} />}
             {instrucciones.account_type && (
-              <div><dt className="text-gray-500">Tipo de cuenta</dt><dd>{instrucciones.account_type}</dd></div>
+              <Linea termino="Tipo de cuenta" valor={instrucciones.account_type} />
             )}
             {instrucciones.account_number && (
-              <div><dt className="text-gray-500">Número</dt><dd>{instrucciones.account_number}</dd></div>
+              <Linea termino="Número de cuenta" valor={instrucciones.account_number} />
             )}
-            {instrucciones.holder && (
-              <div><dt className="text-gray-500">Titular</dt><dd>{instrucciones.holder}</dd></div>
-            )}
-            {instrucciones.rut && (
-              <div><dt className="text-gray-500">RUT</dt><dd>{instrucciones.rut}</dd></div>
-            )}
+            {instrucciones.holder && <Linea termino="Titular" valor={instrucciones.holder} />}
+            {instrucciones.rut && <Linea termino="RUT" valor={instrucciones.rut} />}
             {instrucciones.email && (
-              <div><dt className="text-gray-500">Enviar comprobante</dt><dd>{instrucciones.email}</dd></div>
+              <Linea termino="Enviar comprobante a" valor={instrucciones.email} />
             )}
-            <div className="sm:col-span-2">
-              <dt className="text-gray-500">Monto</dt>
-              <dd className="text-lg font-semibold">${Number(order.total).toLocaleString("es-CL")}</dd>
-            </div>
           </dl>
-          <p className="mt-3 text-sm text-gray-600">{instrucciones.note}</p>
-        </div>
+          {instrucciones.note && (
+            <p className="border-t border-humo px-6 py-4 text-sm text-tinta-suave">
+              {instrucciones.note}
+            </p>
+          )}
+        </section>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-lg border border-gray-100 p-4">
-            <h3 className="font-medium text-gray-900 mb-4">Productos</h3>
-            <div className="space-y-4">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center">
-                  {item.cover_url ? (
-                    <img
-                      src={item.cover_url}
-                      alt={item.title ?? "Portada"}
-                      className="w-16 h-20 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="w-16 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
-                      Sin imagen
-                    </div>
-                  )}
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
+        <div className="space-y-6">
+          <section className="panel p-6">
+            <h2 className="font-display text-lg font-extrabold">Productos</h2>
+            <ul className="mt-4 space-y-4">
+              {pedido.items.map((item) => (
+                <li key={item.id} className="flex items-center gap-4">
+                  <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-humo bg-papel">
+                    {item.cover_url ? (
+                      <img src={item.cover_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center">
+                        <Alpaca className="h-7 w-7 text-humo" />
+                      </span>
+                    )}
+                  </div>
                   <div className="flex-1">
-                    <p className="font-medium">
+                    <p className="font-semibold">
                       {item.sku ? (
-                        <Link to={`/producto/${item.sku}`} className="hover:text-indigo-600">
-                          {item.title ?? `Producto ${item.product_id.slice(0, 8)}`}
+                        <Link to={`/producto/${item.sku}`} className="hover:text-morado">
+                          {item.title ?? "Título"}
                         </Link>
                       ) : (
-                        item.title ?? `Producto ${item.product_id.slice(0, 8)}`
+                        (item.title ?? "Título")
                       )}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      Cantidad: {item.quantity} x ${Number(item.unit_price).toLocaleString("es-CL")}
+                    <p className="text-sm text-tinta-suave">
+                      {item.quantity} × {clp(item.unit_price)}
                     </p>
                   </div>
-                  <p className="font-medium text-right">
-                    ${(Number(item.unit_price) * item.quantity).toLocaleString("es-CL")}
+                  <p className="font-semibold">
+                    {clp(Number(item.unit_price) * item.quantity)}
                   </p>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          <div className="bg-white rounded-lg border border-gray-100 p-4">
-            <h3 className="font-medium text-gray-900 mb-4">Datos de envío</h3>
-            <div className="text-gray-600 space-y-1 text-sm">
-              {order.shipping_name && <p>{order.shipping_name}</p>}
-              {order.shipping_phone && <p>Teléfono: {order.shipping_phone}</p>}
-              <p className="whitespace-pre-line">{order.shipping_address || "No especificada"}</p>
-              {(order.shipping_comuna || order.shipping_region) && (
-                <p>
-                  {[order.shipping_comuna, order.shipping_region].filter(Boolean).join(", ")}
-                </p>
+          <section className="panel p-6">
+            <h2 className="font-display text-lg font-extrabold">Despacho</h2>
+            <div className="mt-3 space-y-1 text-sm text-tinta-suave">
+              {pedido.shipping_name && <p className="font-medium text-tinta">{pedido.shipping_name}</p>}
+              {pedido.shipping_phone && <p>{pedido.shipping_phone}</p>}
+              <p className="whitespace-pre-line">
+                {pedido.shipping_address || "Sin dirección registrada"}
+              </p>
+              {(pedido.shipping_comuna || pedido.shipping_region) && (
+                <p>{[pedido.shipping_comuna, pedido.shipping_region].filter(Boolean).join(", ")}</p>
               )}
-              {order.shipping_notes && (
-                <p className="text-gray-500">Notas: {order.shipping_notes}</p>
-              )}
+              {pedido.shipping_notes && <p>Notas: {pedido.shipping_notes}</p>}
             </div>
-          </div>
+          </section>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-100 p-4 h-fit">
-          <h3 className="font-medium text-gray-900 mb-4">Resumen</h3>
-          <dl className="space-y-3 text-sm">
+        <aside className="panel p-6 lg:sticky lg:top-24">
+          <h2 className="font-display text-lg font-extrabold">Resumen</h2>
+          <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-600">Subtotal</dt>
-              <dd className="font-medium">${Number(order.subtotal).toLocaleString("es-CL")}</dd>
+              <dt className="text-tinta-suave">Subtotal</dt>
+              <dd className="font-medium">{clp(pedido.subtotal)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-600">Envío</dt>
-              <dd className="font-medium">${Number(order.shipping).toLocaleString("es-CL")}</dd>
+              <dt className="text-tinta-suave">Envío</dt>
+              <dd className="font-medium">
+                {Number(pedido.shipping) === 0 ? "Gratis" : clp(pedido.shipping)}
+              </dd>
             </div>
-            <div className="border-t pt-3 flex justify-between text-lg font-bold">
+            <div className="flex justify-between border-t border-humo pt-3 font-display text-lg font-extrabold">
               <dt>Total</dt>
-              <dd>${Number(order.total).toLocaleString("es-CL")}</dd>
+              <dd>{clp(pedido.total)}</dd>
             </div>
           </dl>
 
-          <div className="mt-6 pt-6 border-t space-y-2 text-sm text-gray-500">
-            <p>Creado: {new Date(order.created_at).toLocaleString("es-CL")}</p>
-            {order.paid_at && <p>Pagado: {new Date(order.paid_at).toLocaleString("es-CL")}</p>}
+          <div className="mt-6 space-y-1 border-t border-humo pt-4 text-xs text-tinta-suave">
+            <p>Creado el {fechaHora(pedido.created_at)}</p>
+            {pedido.paid_at && <p>Pagado el {fechaHora(pedido.paid_at)}</p>}
           </div>
 
-          {order.status === "pending" && (
+          {pedido.status === "pending" && (
             <button
               onClick={() => {
-                if (confirm("¿Cancelar este pedido y liberar el stock?")) {
-                  cancelMutation.mutate();
-                }
+                if (confirm("¿Cancelar este pedido y liberar el stock?")) cancelar.mutate();
               }}
-              disabled={cancelMutation.isPending}
-              className="mt-6 w-full py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              disabled={cancelar.isPending}
+              className="btn btn-peligro mt-5 w-full"
             >
-              {cancelMutation.isPending ? "Cancelando..." : "Cancelar pedido"}
+              {cancelar.isPending ? "Cancelando…" : "Cancelar pedido"}
             </button>
           )}
 
           {error && (
-            <p role="alert" className="mt-3 text-sm text-red-600">
+            <p role="alert" className="mt-3 text-sm text-alerta">
               {error}
             </p>
           )}
-        </div>
+        </aside>
       </div>
+    </div>
+  );
+}
+
+function Linea({ termino, valor }: { termino: string; valor: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-tinta-suave">{termino}</dt>
+      <dd className="font-semibold">{valor}</dd>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { useAuth } from "../store/auth";
+import { Link, useNavigate } from "react-router-dom";
+
+import Alpaca from "../components/Alpaca";
+import { Aviso } from "../components/ui";
 import { api } from "../api/client";
+import { useAuth } from "../store/auth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -8,86 +12,91 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { setTokens, setUser } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append("username", email);
-      formData.append("password", password);
-      const res = await api.post("/auth/login", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post(
+        "/auth/login",
+        new URLSearchParams({ username: email, password }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
+      );
       const { access_token, refresh_token } = res.data;
       setTokens(access_token, refresh_token);
       const me = await api.get("/auth/me");
       setUser(me.data);
-      window.location.href = "/";
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Error al iniciar sesión");
+      navigate("/");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+        ?.detail;
+      setError(
+        typeof detail === "string"
+          ? detail
+          : "No pudimos iniciar sesión. Revisa tu correo y contraseña.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="text-center text-3xl font-bold text-gray-900">Iniciar sesión</h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">Correo electrónico</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Correo electrónico"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Contraseña</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-              />
-            </div>
-          </div>
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </button>
-          </div>
-        </form>
-        <p className="text-center text-sm text-gray-600">
-          ¿No tienes cuenta? <a href="/register" className="text-indigo-600 hover:text-indigo-500">Regístrate</a>
+    <div className="contenedor max-w-md py-16">
+      <div className="text-center">
+        <Alpaca className="mx-auto h-14 w-14 text-morado" />
+        <h1 className="mt-4 font-display text-3xl font-extrabold">Entrar</h1>
+        <p className="mt-2 text-tinta-suave">
+          Para comprar, seguir tus pedidos y participar en el foro.
         </p>
       </div>
+
+      <form className="panel mt-8 space-y-4 p-6" onSubmit={enviar}>
+        {error && <Aviso tono="error">{error}</Aviso>}
+
+        <div>
+          <label htmlFor="email" className="etiqueta-campo">
+            Correo electrónico
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="campo"
+            placeholder="tu@correo.cl"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="etiqueta-campo">
+            Contraseña
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="campo"
+          />
+        </div>
+
+        <button type="submit" disabled={loading} className="btn btn-primario w-full">
+          {loading ? "Entrando…" : "Entrar"}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-tinta-suave">
+        ¿Primera vez acá?{" "}
+        <Link to="/register" className="enlace">
+          Crea tu cuenta
+        </Link>
+      </p>
     </div>
   );
 }

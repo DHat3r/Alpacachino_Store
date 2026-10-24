@@ -1,115 +1,231 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { useState } from "react";
-import { api } from "../api/client";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 
-interface Product {
-  id: string;
-  sku: string;
-  title: string;
-  author: string | null;
-  price: number;
-  cover_url: string | null;
-  category: { name: string } | null;
-  inventory_quantity: number;
-  inventory_reserved: number;
-  rating_avg: number | null;
-  reviews_count: number;
+import FichaProducto, { type ProductoFicha } from "../components/FichaProducto";
+import { ErrorCarga, FichaSkeleton, Paginacion, Vacio } from "../components/ui";
+import { api } from "../api/client";
+import { plural } from "../lib/format";
+
+interface Categoria {
+  id: number;
+  name: string;
+  slug: string;
 }
 
-const SORTS: Array<[string, string]> = [
+const ORDENES: Array<[string, string]> = [
   ["newest", "Novedades"],
   ["price_asc", "Menor precio"],
   ["price_desc", "Mayor precio"],
-  ["title", "Título A-Z"],
+  ["title", "Título A–Z"],
 ];
 
-export default function Catalog() {
-  const [sort, setSort] = useState("newest");
+const TAMANO = 12;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["products", sort],
+export default function Catalog() {
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") ?? "";
+  const categoria = params.get("categoria") ?? "";
+  const orden = params.get("orden") ?? "newest";
+  const soloStock = params.get("stock") === "1";
+  const pagina = Number(params.get("pagina") ?? 1);
+
+  // Caja de búsqueda con rebote: no dispara una consulta por tecla.
+  const [texto, setTexto] = useState(q);
+  useEffect(() => setTexto(q), [q]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (texto !== q) actualizar({ q: texto || null, pagina: null });
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texto]);
+
+  function actualizar(cambios: Record<string, string | null>) {
+    const siguiente = new URLSearchParams(params);
+    for (const [clave, valor] of Object.entries(cambios)) {
+      if (valor === null || valor === "") siguiente.delete(clave);
+      else siguiente.set(clave, valor);
+    }
+    setParams(siguiente, { replace: true });
+  }
+
+  const { data: categorias } = useQuery({
+    queryKey: ["categorias"],
     queryFn: async () => {
-      const res = await api.get("/products", { params: { sort } });
-      return res.data.items as Product[];
+      const res = await api.get("/products/categories");
+      return res.data as Categoria[];
     },
+    staleTime: 1000 * 60 * 30,
   });
 
-  if (isLoading) return <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 p-6">{[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error cargando productos</div>;
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["products", { q, categoria, orden, soloStock, pagina }],
+    queryFn: async () => {
+      const res = await api.get("/products", {
+        params: {
+          sort: orden,
+          page: pagina,
+          size: TAMANO,
+          ...(q ? { q } : {}),
+          ...(categoria ? { category: categoria } : {}),
+          ...(soloStock ? { in_stock: true } : {}),
+        },
+      });
+      return res.data as { items: ProductoFicha[]; total: number; page: number; size: number };
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  const totalPaginas = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
+  const hayFiltros = Boolean(q || categoria || soloStock);
 
   return (
-    <div className="p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold">Catálogo</h1>
-        <label className="text-sm text-gray-700">
-          Ordenar por
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="ml-3 px-3 py-1.5 border border-gray-300 rounded-lg"
-          >
-            {SORTS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {data?.map((p) => {
-          const stock = p.inventory_quantity - p.inventory_reserved;
-          return (
-            <Link key={p.id} to={`/producto/${p.sku}`} className="group block">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-                {p.cover_url ? (
-                  <img src={p.cover_url} alt={p.title} className="w-full h-64 object-cover" />
-                ) : (
-                  <div className="w-full h-64 bg-gray-100 flex items-center justify-center text-gray-400">
-                    Sin imagen
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="text-xs text-gray-500 mb-1">{p.category?.name || "Sin categoría"}</p>
-                  <h3 className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                    {p.title}
-                  </h3>
-                  {p.author && <p className="text-sm text-gray-500 mt-1">{p.author}</p>}
-                  {p.rating_avg != null && (
-                    <p className="text-sm text-amber-600 mt-1">
-                      ⭐ {p.rating_avg.toFixed(1)} ({p.reviews_count})
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-lg font-bold text-indigo-600">${Number(p.price).toLocaleString("es-CL")}</p>
-                    {stock === 0 ? (
-                      <span className="text-xs text-red-600 font-medium">Agotado</span>
-                    ) : stock <= 3 ? (
-                      <span className="text-xs text-amber-600">Últimas {stock}</span>
-                    ) : null}
-                  </div>
-                </div>
+    <div className="contenedor py-10">
+      <header className="mb-8">
+        <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Catálogo</h1>
+        <p className="mt-2 text-tinta-suave">
+          {data
+            ? plural(data.total, "título disponible", "títulos disponibles")
+            : "Cargando títulos…"}
+        </p>
+      </header>
+
+      <div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+          <div>
+            <label htmlFor="buscar" className="etiqueta-campo">
+              Buscar
+            </label>
+            <input
+              id="buscar"
+              type="search"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="Título o autor"
+              className="campo"
+            />
+          </div>
+
+          <div>
+            <h2 className="etiqueta-campo">Categoría</h2>
+            <div className="flex flex-wrap gap-1.5 lg:flex-col lg:items-start">
+              <BotonFiltro
+                activo={!categoria}
+                onClick={() => actualizar({ categoria: null, pagina: null })}
+              >
+                Todas
+              </BotonFiltro>
+              {categorias?.map((c) => (
+                <BotonFiltro
+                  key={c.id}
+                  activo={categoria === c.slug}
+                  onClick={() => actualizar({ categoria: c.slug, pagina: null })}
+                >
+                  {c.name}
+                </BotonFiltro>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="orden" className="etiqueta-campo">
+              Ordenar por
+            </label>
+            <select
+              id="orden"
+              value={orden}
+              onChange={(e) => actualizar({ orden: e.target.value, pagina: null })}
+              className="campo"
+            >
+              {ORDENES.map(([valor, texto]) => (
+                <option key={valor} value={valor}>
+                  {texto}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2.5 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={soloStock}
+              onChange={(e) => actualizar({ stock: e.target.checked ? "1" : null, pagina: null })}
+              className="h-4 w-4 rounded border-humo accent-morado"
+            />
+            Solo con stock
+          </label>
+
+          {hayFiltros && (
+            <button
+              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+              className="btn btn-fantasma -ml-2"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </aside>
+
+        <div>
+          {error ? (
+            <ErrorCarga />
+          ) : isLoading ? (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <FichaSkeleton key={i} />
+              ))}
+            </div>
+          ) : data && data.items.length > 0 ? (
+            <>
+              <div
+                className={`grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-3 ${
+                  isFetching ? "opacity-60 transition-opacity" : ""
+                }`}
+              >
+                {data.items.map((p) => (
+                  <FichaProducto key={p.id} producto={p} />
+                ))}
               </div>
-            </Link>
-          );
-        })}
+              <Paginacion
+                pagina={pagina}
+                totalPaginas={totalPaginas}
+                onCambio={(p) => {
+                  actualizar({ pagina: String(p) });
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
+            </>
+          ) : (
+            <Vacio
+              titulo="No encontramos títulos con esos filtros"
+              texto="Prueba con otra categoría o quita la búsqueda."
+            />
+          )}
+        </div>
       </div>
-      {(!data || data.length === 0) && <p className="text-center text-gray-500 py-12">No hay productos disponibles</p>}
     </div>
   );
 }
 
-function ProductSkeleton() {
+function BotonFiltro({
+  activo,
+  onClick,
+  children,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden animate-pulse">
-      <div className="w-full h-64 bg-gray-200" />
-      <div className="p-4 space-y-3">
-        <div className="h-3 bg-gray-200 rounded w-1/4" />
-        <div className="h-4 bg-gray-200 rounded w-3/4" />
-        <div className="h-4 bg-gray-200 rounded w-1/2" />
-        <div className="h-6 bg-gray-200 rounded w-1/3" />
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+        activo ? "bg-morado text-white" : "bg-white text-tinta-suave hover:bg-morado-tenue"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

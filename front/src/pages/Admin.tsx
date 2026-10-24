@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../store/auth";
+import { textoEstado } from "../components/ui";
+import { clp, fechaHora } from "../lib/format";
 
 /* ── Tipos ─────────────────────────────────────────────────── */
 
@@ -87,13 +89,28 @@ const ORDER_STATUSES = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  paid: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  expired: "bg-gray-100 text-gray-800",
-  cancelled: "bg-gray-100 text-gray-800",
-  shipped: "bg-blue-100 text-blue-800",
-  delivered: "bg-purple-100 text-purple-800",
+  pending: "bg-durazno-tenue text-durazno-hondo",
+  paid: "bg-exito-tenue text-exito",
+  failed: "bg-alerta-tenue text-alerta",
+  expired: "bg-nube-hondo text-tinta-suave",
+  cancelled: "bg-nube-hondo text-tinta-suave",
+  shipped: "bg-morado-tenue text-morado",
+  delivered: "bg-exito-tenue text-exito",
+};
+
+/**
+ * Transiciones que acepta el backend (app/services/orders.py).
+ * El selector solo ofrece estas: antes mostraba los 7 estados y la API
+ * rechazaba la mayoría con un 400.
+ */
+const TRANSICIONES: Record<string, string[]> = {
+  pending: ["paid", "failed", "cancelled", "expired"],
+  paid: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+  expired: [],
+  failed: [],
 };
 
 const PAGE_SIZE = 20;
@@ -109,32 +126,21 @@ export default function Admin() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="text-xl font-bold text-indigo-600">
-              🦙 AlpacachinoStore
-            </Link>
-            <Link to="/" className="text-sm text-gray-600 hover:text-indigo-600">
-              ← Volver a la tienda
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="contenedor py-10">
+      <div>
+        <h1 className="font-display text-3xl font-extrabold sm:text-4xl">
+          Panel de administración
+        </h1>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Panel de administración</h1>
-
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-200">
+        <div className="mb-8 mt-6 flex flex-wrap gap-2 border-b border-humo">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
                 tab === t.id
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
+                  ? "border-morado text-morado"
+                  : "border-transparent text-tinta-suave hover:text-tinta"
               }`}
             >
               {t.label}
@@ -146,7 +152,7 @@ export default function Admin() {
         {tab === "inventario" && <InventoryTab />}
         {tab === "pedidos" && <OrdersTab />}
         {tab === "usuarios" && <UsersTab />}
-      </main>
+      </div>
     </div>
   );
 }
@@ -162,28 +168,28 @@ function DashboardTab() {
     },
   });
 
-  if (isLoading) return <p className="text-gray-600">Cargando indicadores...</p>;
-  if (error || !data) return <p className="text-red-600">Error cargando los indicadores</p>;
+  if (isLoading) return <p className="text-tinta-suave">Cargando indicadores...</p>;
+  if (error || !data) return <p className="text-alerta">Error cargando los indicadores</p>;
 
   const cards = [
-    { label: "Productos activos", value: data.total_products, accent: "text-indigo-600" },
-    { label: "Pedidos totales", value: data.total_orders, accent: "text-gray-900" },
+    { label: "Productos activos", value: data.total_products, accent: "text-morado" },
+    { label: "Pedidos totales", value: data.total_orders, accent: "text-tinta" },
     { label: "Pedidos pendientes", value: data.pending_orders, accent: "text-yellow-600" },
-    { label: "Pedidos pagados", value: data.paid_orders, accent: "text-green-600" },
+    { label: "Pedidos pagados", value: data.paid_orders, accent: "text-exito" },
     {
       label: "Ingresos del mes",
-      value: `$${Number(data.revenue_this_month).toLocaleString("es-CL")}`,
-      accent: "text-green-700",
+      value: clp(data.revenue_this_month),
+      accent: "text-exito",
     },
-    { label: "Alertas de stock", value: data.low_stock_alerts, accent: "text-red-600" },
+    { label: "Alertas de stock", value: data.low_stock_alerts, accent: "text-alerta" },
   ];
 
   return (
     <div className="space-y-8">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <p className="text-sm text-gray-500 mb-2">{c.label}</p>
+          <div key={c.label} className="panel p-6">
+            <p className="text-sm text-tinta-suave mb-2">{c.label}</p>
             <p className={`text-3xl font-bold ${c.accent}`}>{c.value}</p>
           </div>
         ))}
@@ -205,8 +211,8 @@ function SystemStatus() {
     refetchInterval: 5000,
   });
 
-  if (isLoading) return <p className="text-sm text-gray-500">Consultando estado del sistema...</p>;
-  if (error || !data) return <p className="text-sm text-red-600">No se pudo consultar /api/health</p>;
+  if (isLoading) return <p className="text-sm text-tinta-suave">Consultando estado del sistema...</p>;
+  if (error || !data) return <p className="text-sm text-alerta">No se pudo consultar /api/health</p>;
 
   const ka = data.keepalive;
   const sb = ka.supabase;
@@ -218,18 +224,18 @@ function SystemStatus() {
         ? `OK · ${sb.latency_ms ?? "?"} ms`
         : "Error";
   const sbColor = !sb.configured
-    ? "text-gray-500"
+    ? "text-tinta-suave"
     : sb.ok
-      ? "text-green-600"
+      ? "text-exito"
       : sb.ok === false
-        ? "text-red-600"
-        : "text-gray-500";
+        ? "text-alerta"
+        : "text-tinta-suave";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+    <div className="panel p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium text-gray-900">Estado del sistema</h3>
-        <span className="text-xs text-gray-400">
+        <h3 className="font-medium text-tinta">Estado del sistema</h3>
+        <span className="text-xs text-tinta-suave/60">
           Latido cada {ka.interval_seconds} s · actualizado{" "}
           {ka.last_check_at ? new Date(ka.last_check_at).toLocaleTimeString("es-CL") : "—"}
         </span>
@@ -237,32 +243,32 @@ function SystemStatus() {
 
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
         <div>
-          <dt className="text-gray-500">API</dt>
-          <dd className={`font-semibold ${data.status === "ok" ? "text-green-600" : "text-yellow-600"}`}>
+          <dt className="text-tinta-suave">API</dt>
+          <dd className={`font-semibold ${data.status === "ok" ? "text-exito" : "text-yellow-600"}`}>
             {data.status}
           </dd>
         </div>
         <div>
-          <dt className="text-gray-500">Base de datos</dt>
-          <dd className={`font-semibold ${data.database === "ok" ? "text-green-600" : "text-red-600"}`}>
+          <dt className="text-tinta-suave">Base de datos</dt>
+          <dd className={`font-semibold ${data.database === "ok" ? "text-exito" : "text-alerta"}`}>
             {data.database}
           </dd>
         </div>
         <div>
-          <dt className="text-gray-500">Supabase</dt>
+          <dt className="text-tinta-suave">Supabase</dt>
           <dd className={`font-semibold ${sbColor}`}>{sbLabel}</dd>
-          {sb.last_error && <p className="text-xs text-gray-400 mt-1">{sb.last_error}</p>}
+          {sb.last_error && <p className="text-xs text-tinta-suave/60 mt-1">{sb.last_error}</p>}
         </div>
         <div>
-          <dt className="text-gray-500">Stock disponible</dt>
-          <dd className="font-semibold text-gray-900">
+          <dt className="text-tinta-suave">Stock disponible</dt>
+          <dd className="font-semibold text-tinta">
             {ka.stock.available} u. en {ka.stock.products} producto(s)
           </dd>
         </div>
       </dl>
 
       {ka.failures > 0 && (
-        <p className="mt-4 text-xs text-red-600">
+        <p className="mt-4 text-xs text-alerta">
           {ka.failures} latido(s) fallido(s) de {ka.checks}. Último error: {ka.last_error}
         </p>
       )}
@@ -308,36 +314,36 @@ function InventoryTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4">
-        <label className="text-sm text-gray-700">
+        <label className="text-sm text-tinta-suave">
           Umbral de stock bajo
           <input
             type="number"
             min={0}
             value={threshold}
             onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
-            className="ml-3 w-20 px-2 py-1 border border-gray-300 rounded-md"
+            className="ml-3 w-20 px-2 py-1 border border-humo rounded-md"
           />
         </label>
-        {adjust.isPending && <span className="text-sm text-gray-500">Aplicando ajuste...</span>}
+        {adjust.isPending && <span className="text-sm text-tinta-suave">Aplicando ajuste...</span>}
       </div>
 
       {feedback && (
-        <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm rounded-lg px-4 py-3">
+        <div className="bg-morado-tenue text-morado-hondo text-sm rounded-lg px-4 py-3">
           {feedback}
         </div>
       )}
 
-      {isLoading && <p className="text-gray-600">Cargando inventario...</p>}
-      {error && <p className="text-red-600">Error cargando el inventario</p>}
+      {isLoading && <p className="text-tinta-suave">Cargando inventario...</p>}
+      {error && <p className="text-alerta">Error cargando el inventario</p>}
 
       {!isLoading && !error && data && data.length === 0 && (
-        <p className="text-gray-500">No hay productos bajo el umbral de {threshold} unidades.</p>
+        <p className="text-tinta-suave">No hay productos bajo el umbral de {threshold} unidades.</p>
       )}
 
       {data && data.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <div className="panel overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-papel text-tinta-suave">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Producto</th>
                 <th className="text-left px-4 py-3 font-medium">SKU</th>
@@ -347,7 +353,7 @@ function InventoryTab() {
                 <th className="text-left px-4 py-3 font-medium">Ajustar</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-humo">
               {data.map((item) => (
                 <InventoryRow
                   key={item.product_id}
@@ -380,13 +386,13 @@ function InventoryRow({
 
   return (
     <tr>
-      <td className="px-4 py-3 font-medium text-gray-900">{item.title}</td>
-      <td className="px-4 py-3 text-gray-500">{item.sku}</td>
+      <td className="px-4 py-3 font-medium text-tinta">{item.title}</td>
+      <td className="px-4 py-3 text-tinta-suave">{item.sku}</td>
       <td className="px-4 py-3 text-right">{item.quantity}</td>
       <td className="px-4 py-3 text-right">{item.reserved}</td>
       <td
         className={`px-4 py-3 text-right font-semibold ${
-          item.available <= 0 ? "text-red-600" : "text-gray-900"
+          item.available <= 0 ? "text-alerta" : "text-tinta"
         }`}
       >
         {item.available}
@@ -397,13 +403,13 @@ function InventoryRow({
             type="number"
             value={delta}
             onChange={(e) => setDelta(Number(e.target.value) || 0)}
-            className="w-20 px-2 py-1 border border-gray-300 rounded-md"
+            className="w-20 px-2 py-1 border border-humo rounded-md"
             aria-label={`Cantidad para ajustar ${item.title}`}
           />
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="px-2 py-1 border border-gray-300 rounded-md"
+            className="px-2 py-1 border border-humo rounded-md"
             aria-label={`Motivo del ajuste de ${item.title}`}
           >
             <option value="restock">Reposición</option>
@@ -412,7 +418,7 @@ function InventoryRow({
           <button
             onClick={() => onAdjust(delta, reason)}
             disabled={disabled || delta === 0}
-            className="px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-xs font-medium"
+            className="px-3 py-1 bg-morado text-white rounded-md hover:bg-morado-hondo disabled:opacity-50 text-xs font-medium"
           >
             Aplicar
           </button>
@@ -461,7 +467,7 @@ function OrdersTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
-        <label className="text-sm text-gray-700">
+        <label className="text-sm text-tinta-suave">
           Estado
           <select
             value={status}
@@ -469,37 +475,37 @@ function OrdersTab() {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="ml-3 px-2 py-1 border border-gray-300 rounded-md"
+            className="ml-3 px-2 py-1 border border-humo rounded-md"
           >
             <option value="">Todos</option>
             {ORDER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {textoEstado(s)}
               </option>
             ))}
           </select>
         </label>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-tinta-suave">
           {data ? `${data.total} pedido(s)` : ""}
         </span>
       </div>
 
       {feedback && (
-        <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm rounded-lg px-4 py-3">
+        <div className="bg-morado-tenue text-morado-hondo text-sm rounded-lg px-4 py-3">
           {feedback}
         </div>
       )}
 
-      {isLoading && <p className="text-gray-600">Cargando pedidos...</p>}
-      {error && <p className="text-red-600">Error cargando los pedidos</p>}
+      {isLoading && <p className="text-tinta-suave">Cargando pedidos...</p>}
+      {error && <p className="text-alerta">Error cargando los pedidos</p>}
       {!isLoading && !error && data?.items.length === 0 && (
-        <p className="text-gray-500">No hay pedidos con ese filtro.</p>
+        <p className="text-tinta-suave">No hay pedidos con ese filtro.</p>
       )}
 
       {data && data.items.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <div className="panel overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-papel text-tinta-suave">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Pedido</th>
                 <th className="text-left px-4 py-3 font-medium">Cliente</th>
@@ -510,54 +516,62 @@ function OrdersTab() {
                 <th className="text-left px-4 py-3 font-medium">Cambiar a</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-humo">
               {data.items.map((order) => (
                 <tr key={order.id}>
                   <td className="px-4 py-3">
                     <Link
                       to={`/pedido/${order.id}`}
-                      className="font-medium text-indigo-600 hover:text-indigo-500"
+                      className="font-medium text-morado hover:text-morado-hondo"
                     >
                       #{order.id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">Usuario {order.user_id}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {new Date(order.created_at).toLocaleString("es-CL")}
+                  <td className="px-4 py-3 text-tinta-suave">Usuario {order.user_id}</td>
+                  <td className="px-4 py-3 text-tinta-suave">
+                    {fechaHora(order.created_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {order.items.reduce((acc, i) => acc + i.quantity, 0)}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
-                    ${Number(order.total).toLocaleString("es-CL")}
+                    {clp(order.total)}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        STATUS_COLORS[order.status] || "bg-gray-100 text-gray-800"
+                        STATUS_COLORS[order.status] || "bg-nube-hondo text-tinta-suave"
                       }`}
                     >
-                      {order.status}
+                      {textoEstado(order.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      value={order.status}
-                      disabled={updateStatus.isPending}
-                      onChange={(e) => {
-                        if (e.target.value !== order.status) {
-                          updateStatus.mutate({ orderId: order.id, newStatus: e.target.value });
-                        }
-                      }}
-                      className="px-2 py-1 border border-gray-300 rounded-md"
-                      aria-label={`Cambiar estado del pedido ${order.id}`}
-                    >
-                      {ORDER_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    {(TRANSICIONES[order.status] ?? []).length === 0 ? (
+                      <span className="text-xs text-tinta-suave">Estado final</span>
+                    ) : (
+                      <select
+                        value={order.status}
+                        disabled={updateStatus.isPending}
+                        onChange={(e) => {
+                          if (e.target.value !== order.status) {
+                            updateStatus.mutate({
+                              orderId: order.id,
+                              newStatus: e.target.value,
+                            });
+                          }
+                        }}
+                        className="rounded-lg border border-humo px-2 py-1"
+                        aria-label={`Cambiar estado del pedido ${order.id}`}
+                      >
+                        <option value={order.status}>{textoEstado(order.status)}</option>
+                        {(TRANSICIONES[order.status] ?? []).map((s) => (
+                          <option key={s} value={s}>
+                            Pasar a: {textoEstado(s)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -634,7 +648,7 @@ function UsersTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
-        <label className="text-sm text-gray-700">
+        <label className="text-sm text-tinta-suave">
           Rol
           <select
             value={role}
@@ -642,7 +656,7 @@ function UsersTab() {
               setRole(e.target.value);
               setPage(1);
             }}
-            className="ml-3 px-2 py-1 border border-gray-300 rounded-md"
+            className="ml-3 px-2 py-1 border border-humo rounded-md"
           >
             <option value="">Todos</option>
             <option value="customer">Cliente</option>
@@ -650,22 +664,22 @@ function UsersTab() {
             <option value="admin">Administrador</option>
           </select>
         </label>
-        <span className="text-sm text-gray-500">{data ? `${data.total} usuario(s)` : ""}</span>
+        <span className="text-sm text-tinta-suave">{data ? `${data.total} usuario(s)` : ""}</span>
       </div>
 
       {feedback && (
-        <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm rounded-lg px-4 py-3">
+        <div className="bg-morado-tenue text-morado-hondo text-sm rounded-lg px-4 py-3">
           {feedback}
         </div>
       )}
 
-      {isLoading && <p className="text-gray-600">Cargando usuarios...</p>}
-      {error && <p className="text-red-600">Error cargando los usuarios</p>}
+      {isLoading && <p className="text-tinta-suave">Cargando usuarios...</p>}
+      {error && <p className="text-alerta">Error cargando los usuarios</p>}
 
       {data && data.items.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <div className="panel overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-papel text-tinta-suave">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Usuario</th>
                 <th className="text-left px-4 py-3 font-medium">Correo</th>
@@ -676,22 +690,22 @@ function UsersTab() {
                 <th className="text-left px-4 py-3 font-medium">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-humo">
               {data.items.map((user) => {
                 const isSelf = currentUser?.id === user.id;
                 return (
                   <tr key={user.id}>
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                    <td className="px-4 py-3 font-medium text-tinta">
                       {user.username}
-                      {isSelf && <span className="ml-2 text-xs text-indigo-600">(tú)</span>}
+                      {isSelf && <span className="ml-2 text-xs text-morado">(tú)</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-tinta-suave">{user.email}</td>
+                    <td className="px-4 py-3 text-tinta-suave">
                       {new Date(user.created_at).toLocaleDateString("es-CL")}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-tinta-suave">
                       {user.last_login
-                        ? new Date(user.last_login).toLocaleString("es-CL")
+                        ? fechaHora(user.last_login)
                         : "Nunca"}
                     </td>
                     <td className="px-4 py-3">
@@ -701,7 +715,7 @@ function UsersTab() {
                         onChange={(e) =>
                           changeRole.mutate({ userId: user.id, newRole: e.target.value })
                         }
-                        className="px-2 py-1 border border-gray-300 rounded-md disabled:bg-gray-100"
+                        className="px-2 py-1 border border-humo rounded-md disabled:bg-nube-hondo"
                         aria-label={`Rol de ${user.username}`}
                       >
                         <option value="customer">Cliente</option>
@@ -725,7 +739,7 @@ function UsersTab() {
                         onClick={() => toggleActive.mutate(user.id)}
                         disabled={toggleActive.isPending || isSelf}
                         title={isSelf ? "No puedes desactivar tu propia cuenta" : undefined}
-                        className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 text-xs font-medium"
+                        className="px-3 py-1 border border-humo rounded-md hover:bg-papel disabled:opacity-50 text-xs font-medium"
                       >
                         {user.is_active ? "Desactivar" : "Activar"}
                       </button>
@@ -761,17 +775,17 @@ function Pagination({
       <button
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+        className="px-4 py-2 text-sm border border-humo rounded-md hover:bg-papel disabled:opacity-50"
       >
         Anterior
       </button>
-      <span className="text-sm text-gray-600">
+      <span className="text-sm text-tinta-suave">
         Página {page} de {totalPages}
       </span>
       <button
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+        className="px-4 py-2 text-sm border border-humo rounded-md hover:bg-papel disabled:opacity-50"
       >
         Siguiente
       </button>

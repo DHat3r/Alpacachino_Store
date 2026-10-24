@@ -69,6 +69,8 @@ class Settings(BaseSettings):
 
     # ── Negocio ──────────────────────────────────────────────
     STOCK_RESERVATION_MINUTES: int = 15
+    # Con pago manual (transferencia) el cliente necesita más que unos minutos.
+    MANUAL_PAYMENT_HOURS: int = 24
     SHIPPING_COST: int = 3500
     FREE_SHIPPING_FROM: int = 30000
     CURRENCY: str = "CLP"
@@ -124,6 +126,18 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
 
     @property
+    def reservation_minutes(self) -> int:
+        """Minutos que se reserva el stock de un pedido pendiente.
+
+        Con pasarela en línea el pago ocurre en minutos (STOCK_RESERVATION_MINUTES).
+        Con pago manual se reserva MANUAL_PAYMENT_HOURS, el mismo plazo que se le
+        informa al cliente en las instrucciones de transferencia.
+        """
+        if self.PAYMENT_PROVIDER.lower() == "manual":
+            return self.MANUAL_PAYMENT_HOURS * 60
+        return self.STOCK_RESERVATION_MINUTES
+
+    @property
     def manual_payment_instructions(self) -> dict:
         """Datos que el cliente necesita para transferir (pago manual)."""
         return {
@@ -134,7 +148,7 @@ class Settings(BaseSettings):
             "holder": self.BANK_HOLDER,
             "rut": self.BANK_RUT,
             "email": self.BANK_EMAIL or self.SELLER_EMAIL,
-            "deadline_hours": 24,
+            "deadline_hours": self.MANUAL_PAYMENT_HOURS,
             "note": (
                 "Transfiere el total y envía el comprobante por correo indicando "
                 "el número de pedido. El pedido queda reservado hasta el vencimiento."

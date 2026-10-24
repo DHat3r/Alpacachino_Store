@@ -1,6 +1,7 @@
 """Pruebas de los cambios previos al frontend (CAMBIOS_ANTES_DEL_FRONTEND.md)."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -189,6 +190,43 @@ def test_checkout_manual_devuelve_instrucciones(
     assert data["payment_provider"] == "manual"
     assert data["payment_url"] is None
     assert data["payment_instructions"]["provider"] == "manual"
+
+
+def _expiracion(client: TestClient, headers: dict, order_id: int) -> timedelta:
+    order = client.get(f"/api/orders/{order_id}", headers=headers).json()
+    expires = datetime.fromisoformat(order["expires_at"].replace("Z", "+00:00"))
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return expires - datetime.now(timezone.utc)
+
+
+def test_reserva_con_pago_manual_dura_24_horas(
+    client: TestClient, auth_headers, product_factory, monkeypatch
+):
+    """La reserva debe durar lo que se le promete al cliente para transferir."""
+    product = product_factory(stock=5)
+    monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "manual")
+    monkeypatch.setattr(settings, "MANUAL_PAYMENT_HOURS", 24)
+
+    res = _checkout(client, auth_headers, product)
+    assert res.status_code == 201, res.text
+
+    restante = _expiracion(client, auth_headers, res.json()["order_id"])
+    assert timedelta(hours=23, minutes=55) < restante <= timedelta(hours=24)
+
+
+def test_reserva_con_pasarela_en_linea_sigue_siendo_corta(
+    client: TestClient, auth_headers, product_factory, monkeypatch
+):
+    product = product_factory(stock=5)
+    monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "mercadopago")
+    monkeypatch.setattr(settings, "STOCK_RESERVATION_MINUTES", 15)
+
+    res = _checkout(client, auth_headers, product)
+    assert res.status_code == 201, res.text
+
+    restante = _expiracion(client, auth_headers, res.json()["order_id"])
+    assert timedelta(minutes=14) < restante <= timedelta(minutes=15)
 
 
 def test_factory_manual_sin_pasarela(monkeypatch):
@@ -558,9 +596,25 @@ def test_config_publica(client: TestClient):
     data = client.get("/api/config").json()
     assert data["shipping_cost"] == settings.SHIPPING_COST
     assert data["free_shipping_from"] == settings.FREE_SHIPPING_FROM
-    assert data["reservation_minutes"] == settings.STOCK_RESERVATION_MINUTES
+    assert data["reservation_minutes"] == settings.reservation_minutes
     assert data["seller"]["name"]
     assert data["payment_provider"] in {"mercadopago", "webpay", "manual"}
+
+
+def test_config_publica_reserva_depende_del_medio_de_pago(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "mercadopago")
+    assert (
+        client.get("/api/config").json()["reservation_minutes"]
+        == settings.STOCK_RESERVATION_MINUTES
+    )
+
+    monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "manual")
+    monkeypatch.setattr(settings, "MANUAL_PAYMENT_HOURS", 24)
+    data = client.get("/api/config").json()
+    assert data["reservation_minutes"] == 24 * 60
+    assert data["payment_instructions"]["deadline_hours"] == 24
 
 
 # ─── 3.4 Admin: productos inactivos y categorías ───

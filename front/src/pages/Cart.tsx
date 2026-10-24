@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCart } from "../store/cart";
-import { useAuth } from "../store/auth";
+
+import Alpaca from "../components/Alpaca";
+import { Aviso, Vacio } from "../components/ui";
 import { api } from "../api/client";
 import { useConfig } from "../api/config";
-import { useState } from "react";
+import { useAuth } from "../store/auth";
+import { useCart } from "../store/cart";
+import { clp, duracionReserva } from "../lib/format";
 
 interface CheckoutResponse {
   order_id: number;
@@ -62,27 +66,38 @@ export default function Cart() {
     shipping_notes: "",
   });
 
-  const shippingCost = config?.shipping_cost ?? 3500;
-  const freeFrom = config?.free_shipping_from ?? 30000;
-  const shipping = total() >= freeFrom ? 0 : shippingCost;
+  const costoEnvio = config?.shipping_cost ?? 3500;
+  const envioGratisDesde = config?.free_shipping_from ?? 30000;
+  const envio = total() >= envioGratisDesde ? 0 : costoEnvio;
 
-  const update = (key: keyof typeof form) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const update =
+    (key: keyof typeof form) =>
+    (
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    ) =>
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
-  const handleCheckout = async () => {
+  const confirmar = async () => {
     if (!isAuthenticated()) {
       navigate("/login");
       return;
     }
     setError("");
 
-    if (form.shipping_address.trim().length < 10) {
-      setError("Ingresa una dirección de envío completa (calle, número y comuna).");
+    if (form.shipping_name.trim().length < 3) {
+      setError("Escribe el nombre de quien recibe el pedido.");
       return;
     }
     if (form.shipping_phone.trim().length < 6) {
       setError("Ingresa un teléfono de contacto válido.");
+      return;
+    }
+    if (form.shipping_comuna.trim().length < 3) {
+      setError("Indica la comuna de despacho.");
+      return;
+    }
+    if (form.shipping_address.trim().length < 10) {
+      setError("Ingresa la dirección completa: calle, número y departamento si aplica.");
       return;
     }
     if (items.length === 0) return;
@@ -107,12 +122,13 @@ export default function Cart() {
         return;
       }
 
-      // Sin pasarela (pago manual o no configurada): el pedido ya está reservado.
+      // Sin pasarela (pago manual): el pedido ya quedó con el stock reservado.
       navigate(`/pedido/${data.order_id}`, {
         state: { paymentInstructions: data.payment_instructions },
       });
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+        ?.detail;
       setError(typeof detail === "string" ? detail : "No pudimos crear el pedido.");
     } finally {
       setLoading(false);
@@ -121,166 +137,220 @@ export default function Cart() {
 
   if (items.length === 0) {
     return (
-      <div className="p-12 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Tu carrito está vacío</h2>
-        <Link to="/catalogo" className="text-indigo-600 hover:text-indigo-500">
-          Ir a comprar
-        </Link>
+      <div className="contenedor py-16">
+        <Vacio
+          titulo="Tu carrito está vacío"
+          texto="Cuando encuentres un tomo que te guste, agrégalo aquí y lo reservamos al confirmar."
+          accion={{ a: "/catalogo", texto: "Ver catálogo" }}
+        />
       </div>
     );
   }
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Carrito ({itemCount()})</h1>
+  const falta = envioGratisDesde - total();
 
-      <div className="space-y-4">
-        {items.map((item) => (
-          <div key={item.productId} className="flex gap-4 bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-            {item.coverUrl ? (
-              <img src={item.coverUrl} alt={item.title} className="w-24 h-32 object-cover rounded" />
-            ) : (
-              <div className="w-24 h-32 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
-                Sin imagen
+  return (
+    <div className="contenedor py-10">
+      <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Carrito</h1>
+      <p className="mt-2 text-tinta-suave">
+        {itemCount()} {itemCount() === 1 ? "unidad lista" : "unidades listas"} para
+        despachar
+      </p>
+
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
+        <div className="space-y-6">
+          <ul className="panel divide-y divide-humo">
+            {items.map((item) => (
+              <li key={item.productId} className="flex gap-4 p-4">
+                <Link
+                  to={`/producto/${item.sku}`}
+                  className="h-28 w-20 shrink-0 overflow-hidden rounded-lg border border-humo bg-papel"
+                >
+                  {item.coverUrl ? (
+                    <img src={item.coverUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center">
+                      <Alpaca className="h-8 w-8 text-humo" />
+                    </span>
+                  )}
+                </Link>
+
+                <div className="flex-1">
+                  <Link
+                    to={`/producto/${item.sku}`}
+                    className="font-semibold hover:text-morado"
+                  >
+                    {item.title}
+                  </Link>
+                  <p className="mt-0.5 text-sm text-tinta-suave">
+                    {clp(item.price)} por unidad
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="flex items-center rounded-full border border-humo">
+                      <button
+                        onClick={() => setQty(item.productId, item.quantity - 1)}
+                        className="px-3 py-1.5 leading-none hover:text-morado"
+                        aria-label={`Quitar una unidad de ${item.title}`}
+                      >
+                        −
+                      </button>
+                      <span className="w-7 text-center text-sm font-semibold">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() => setQty(item.productId, item.quantity + 1)}
+                        className="px-3 py-1.5 leading-none hover:text-morado"
+                        aria-label={`Agregar una unidad de ${item.title}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => remove(item.productId)}
+                      className="text-sm font-medium text-tinta-suave hover:text-alerta"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+
+                <p className="font-display text-lg font-extrabold">
+                  {clp(Number(item.price) * item.quantity)}
+                </p>
+              </li>
+            ))}
+          </ul>
+
+          <section className="panel p-6">
+            <h2 className="font-display text-xl font-extrabold">Datos de despacho</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="nombre" className="etiqueta-campo">
+                  Nombre de quien recibe
+                </label>
+                <input
+                  id="nombre"
+                  value={form.shipping_name}
+                  onChange={update("shipping_name")}
+                  autoComplete="name"
+                  className="campo"
+                  placeholder="Ana Pérez"
+                />
               </div>
-            )}
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">{item.title}</h3>
-              <p className="text-sm text-gray-500">${Number(item.price).toLocaleString("es-CL")} c/u</p>
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => setQty(item.productId, item.quantity - 1)}
-                  className="w-8 h-8 border border-gray-300 rounded hover:bg-gray-100"
+              <div>
+                <label htmlFor="telefono" className="etiqueta-campo">
+                  Teléfono
+                </label>
+                <input
+                  id="telefono"
+                  value={form.shipping_phone}
+                  onChange={update("shipping_phone")}
+                  autoComplete="tel"
+                  className="campo"
+                  placeholder="+56 9 1234 5678"
+                />
+              </div>
+              <div>
+                <label htmlFor="region" className="etiqueta-campo">
+                  Región
+                </label>
+                <select
+                  id="region"
+                  value={form.shipping_region}
+                  onChange={update("shipping_region")}
+                  className="campo"
                 >
-                  -
-                </button>
-                <span className="w-12 text-center">{item.quantity}</span>
-                <button
-                  onClick={() => setQty(item.productId, item.quantity + 1)}
-                  className="w-8 h-8 border border-gray-300 rounded hover:bg-gray-100"
-                >
-                  +
-                </button>
-                <span className="ml-2 font-medium">
-                  ${(Number(item.price) * item.quantity).toLocaleString("es-CL")}
-                </span>
+                  {REGIONES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="comuna" className="etiqueta-campo">
+                  Comuna
+                </label>
+                <input
+                  id="comuna"
+                  value={form.shipping_comuna}
+                  onChange={update("shipping_comuna")}
+                  className="campo"
+                  placeholder="Providencia"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="direccion" className="etiqueta-campo">
+                  Dirección
+                </label>
+                <textarea
+                  id="direccion"
+                  value={form.shipping_address}
+                  onChange={update("shipping_address")}
+                  rows={2}
+                  className="campo"
+                  placeholder="Calle, número, departamento"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="notas" className="etiqueta-campo">
+                  Notas para el reparto (opcional)
+                </label>
+                <input
+                  id="notas"
+                  value={form.shipping_notes}
+                  onChange={update("shipping_notes")}
+                  className="campo"
+                  placeholder="Dejar con conserje"
+                />
               </div>
             </div>
-            <button
-              onClick={() => remove(item.productId)}
-              className="text-red-600 hover:text-red-800 text-sm font-medium"
-            >
-              Eliminar
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-8 bg-white p-6 rounded-lg border border-gray-100 shadow-sm">
-        <div className="flex justify-between mb-4">
-          <span className="text-gray-600">Subtotal</span>
-          <span className="font-medium">${total().toLocaleString("es-CL")}</span>
-        </div>
-        <div className="flex justify-between mb-4">
-          <span className="text-gray-600">Envío</span>
-          <span className="font-medium">
-            {shipping === 0 ? "Gratis" : `$${shipping.toLocaleString("es-CL")}`}
-          </span>
-        </div>
-        <div className="border-t pt-4 flex justify-between text-lg font-bold">
-          <span>Total</span>
-          <span>${(total() + shipping).toLocaleString("es-CL")}</span>
+          </section>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="font-medium text-gray-700">Nombre y apellido</span>
-            <input
-              value={form.shipping_name}
-              onChange={update("shipping_name")}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Ana Pérez"
-              autoComplete="name"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-gray-700">Teléfono</span>
-            <input
-              value={form.shipping_phone}
-              onChange={update("shipping_phone")}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="+56 9 1234 5678"
-              autoComplete="tel"
-              required
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-gray-700">Región</span>
-            <select
-              value={form.shipping_region}
-              onChange={update("shipping_region")}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {REGIONES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-gray-700">Comuna</span>
-            <input
-              value={form.shipping_comuna}
-              onChange={update("shipping_comuna")}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Providencia"
-            />
-          </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="font-medium text-gray-700">Dirección de envío</span>
-            <textarea
-              value={form.shipping_address}
-              onChange={update("shipping_address")}
-              rows={2}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Calle, número, departamento, código postal..."
-              required
-            />
-          </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="font-medium text-gray-700">Notas para el reparto (opcional)</span>
-            <input
-              value={form.shipping_notes}
-              onChange={update("shipping_notes")}
-              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Ej.: dejar con conserje"
-            />
-          </label>
-        </div>
+        <aside className="panel p-6 lg:sticky lg:top-24">
+          <h2 className="font-display text-lg font-extrabold">Resumen</h2>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-tinta-suave">Subtotal</dt>
+              <dd className="font-medium">{clp(total())}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-tinta-suave">Envío</dt>
+              <dd className="font-medium">{envio === 0 ? "Gratis" : clp(envio)}</dd>
+            </div>
+            <div className="flex justify-between border-t border-humo pt-3 font-display text-lg font-extrabold">
+              <dt>Total</dt>
+              <dd>{clp(total() + envio)}</dd>
+            </div>
+          </dl>
 
-        {error && (
-          <div role="alert" className="mt-4 bg-red-50 text-red-700 text-sm rounded-lg p-3">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={handleCheckout}
-          disabled={loading}
-          className="mt-6 w-full py-3 px-6 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {loading ? "Procesando..." : "Confirmar pedido"}
-        </button>
-
-        <p className="mt-4 text-center text-sm text-gray-500">
-          {total() < freeFrom && (
-            <span>
-              Envío gratis en compras sobre ${freeFrom.toLocaleString("es-CL")} (faltan $
-              {(freeFrom - total()).toLocaleString("es-CL")})
-            </span>
+          {falta > 0 && (
+            <p className="mt-3 text-xs leading-relaxed text-tinta-suave">
+              Te faltan {clp(falta)} para el envío gratis.
+            </p>
           )}
-        </p>
+
+          {error && (
+            <div className="mt-4">
+              <Aviso tono="error">{error}</Aviso>
+            </div>
+          )}
+
+          <button
+            onClick={confirmar}
+            disabled={loading}
+            className="btn btn-primario btn-grande mt-5 w-full"
+          >
+            {loading ? "Creando pedido…" : "Confirmar pedido"}
+          </button>
+
+          <p className="mt-3 text-xs leading-relaxed text-tinta-suave">
+            Reservamos el stock por {duracionReserva(config?.reservation_minutes)} y te
+            mostramos los datos para transferir.
+          </p>
+        </aside>
       </div>
     </div>
   );

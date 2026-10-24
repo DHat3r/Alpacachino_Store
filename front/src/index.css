@@ -1,7 +1,164 @@
 /*
- * Tailwind CSS v4 usa sintaxis CSS-first: una sola importación genera el
- * preflight y todas las utilidades detectadas en el código.
- * (Antes estaba con directivas de v3 — @tailwind base/components/utilities —
- * que v4 ignora, por eso la app se veía sin estilos.)
+ * Sistema visual de AlpacachinoStore.
+ *
+ * Tailwind v4 usa configuración CSS-first: los tokens viven en @theme y
+ * generan utilidades (bg-morado, text-tinta, font-display, rounded-panel...).
+ *
+ * Idea del diseño: la página es "nube" (gris frío), el contenido vive en
+ * paneles de "papel" con medianiles visibles —como las viñetas de un manga—
+ * y el morado es estructura (bandas, estados, acciones), no decoración.
  */
 @import "tailwindcss";
+
+@theme {
+  /* Fondo y superficies */
+  --color-nube: #e9ebf2;
+  --color-nube-hondo: #dadeeb;
+  --color-papel: #f7f0e6;
+  --color-papel-hondo: #efe3d2;
+  --color-humo: #d3d1de;
+
+  /* Tinta (texto) */
+  --color-tinta: #1b1420;
+  --color-tinta-suave: #5a4f63;
+
+  /* Morado de marca */
+  --color-morado: #5b2ba6;
+  --color-morado-hondo: #46207f;
+  --color-morado-tenue: #ece2fb;
+  --color-lila: #b79cf0;
+
+  /* Acentos de estado */
+  --color-durazno: #e5a21a;
+  --color-durazno-hondo: #845200;
+  --color-durazno-tenue: #fcf0d6;
+  --color-alerta: #b3261e;
+  --color-alerta-tenue: #fbe9e7;
+  --color-exito: #15603f;
+  --color-exito-tenue: #ddf1e7;
+
+  /* Tipografía */
+  --font-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Formas */
+  --radius-panel: 1.25rem;
+  --radius-ficha: 0.875rem;
+
+  --shadow-panel: 0 1px 0 rgb(27 20 32 / 0.04);
+  --shadow-levanta: 0 18px 34px -22px rgb(45 25 80 / 0.55);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-nube font-sans text-tinta antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+    font-variation-settings: "wdth" 100;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-morado;
+  }
+
+  ::selection {
+    background: var(--color-lila);
+    color: var(--color-tinta);
+  }
+
+  /* Respeta la preferencia de menos movimiento del sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .contenedor {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Viñeta: la superficie base de todo el contenido. */
+  .panel {
+    @apply rounded-panel border border-humo bg-white shadow-panel;
+  }
+
+  .panel-papel {
+    @apply rounded-panel border border-papel-hondo bg-papel shadow-panel;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primario {
+    @apply bg-morado text-white hover:bg-morado-hondo;
+  }
+
+  .btn-secundario {
+    @apply border border-humo bg-white text-tinta hover:bg-papel;
+  }
+
+  .btn-fantasma {
+    @apply text-morado hover:bg-morado-tenue;
+  }
+
+  .btn-peligro {
+    @apply border border-alerta/30 text-alerta hover:bg-alerta-tenue;
+  }
+
+  .btn-grande {
+    @apply px-7 py-3.5 text-base;
+  }
+
+  .campo {
+    @apply w-full rounded-xl border border-humo bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors placeholder:text-tinta-suave/55 focus:border-morado focus:outline-none focus:ring-2 focus:ring-morado/25;
+  }
+
+  .etiqueta-campo {
+    @apply mb-1.5 block text-sm font-medium text-tinta-suave;
+  }
+
+  .insignia {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold;
+  }
+
+  .enlace {
+    @apply font-medium text-morado underline-offset-4 hover:underline;
+  }
+
+  .titulo-seccion {
+    @apply font-display text-2xl font-extrabold sm:text-3xl;
+  }
+
+  /* Faja de papel que cruza la portada, como el obi de un tomo. */
+  .obi {
+    @apply absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-morado px-3 py-2 font-display text-base font-extrabold text-white;
+  }
+
+  /* Texto largo (términos, descripciones) sin el plugin typography. */
+  .texto-largo h2 {
+    @apply mt-8 mb-2 font-display text-xl font-extrabold;
+  }
+
+  .texto-largo p {
+    @apply mb-4 leading-relaxed text-tinta-suave;
+  }
+
+  .texto-largo a {
+    @apply text-morado underline underline-offset-4;
+  }
+}

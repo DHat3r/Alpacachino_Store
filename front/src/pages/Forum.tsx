@@ -1,8 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "../store/auth";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
+import { Aviso, Cargando, ErrorCarga, Paginacion, Vacio } from "../components/ui";
 import { api } from "../api/client";
+import { useAuth } from "../store/auth";
+import { fecha, plural } from "../lib/format";
 
 interface PostProduct {
   id: string;
@@ -13,18 +16,14 @@ interface PostProduct {
 
 interface Post {
   id: number;
-  author_id: number;
   author_username: string;
   title: string;
   body: string;
-  product_id: string | null;
   product: PostProduct | null;
   rating: number | null;
-  is_hidden: boolean;
   is_pinned: boolean;
   is_locked: boolean;
   created_at: string;
-  updated_at: string;
   comments_count: number;
 }
 
@@ -35,9 +34,15 @@ interface PostPage {
   size: number;
 }
 
-type Kind = "" | "review" | "discussion";
+type Tipo = "" | "review" | "discussion";
 
-const SIZE = 10;
+const TIPOS: Array<[Tipo, string]> = [
+  ["", "Todo"],
+  ["discussion", "Conversaciones"],
+  ["review", "Reseñas"],
+];
+
+const TAMANO = 10;
 
 export default function Forum() {
   const { isAuthenticated } = useAuth();
@@ -45,21 +50,22 @@ export default function Forum() {
   const [searchParams] = useSearchParams();
   const productId = searchParams.get("producto") ?? "";
   const queryClient = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [kind, setKind] = useState<Kind>("");
+
+  const [abierto, setAbierto] = useState(false);
+  const [titulo, setTitulo] = useState("");
+  const [cuerpo, setCuerpo] = useState("");
+  const [tipo, setTipo] = useState<Tipo>("");
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  const [pagina, setPagina] = useState(1);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["forum-posts", kind, q, page, productId],
+    queryKey: ["forum-posts", tipo, q, pagina, productId],
     queryFn: async () => {
       const res = await api.get("/forum/posts", {
         params: {
-          page,
-          size: SIZE,
-          ...(kind ? { kind } : {}),
+          page: pagina,
+          size: TAMANO,
+          ...(tipo ? { kind: tipo } : {}),
           ...(q ? { q } : {}),
           ...(productId ? { product_id: productId } : {}),
         },
@@ -68,215 +74,207 @@ export default function Forum() {
     },
   });
 
-  const createMutation = useMutation({
+  const publicar = useMutation({
     mutationFn: async (payload: { title: string; body: string }) => {
       const res = await api.post("/forum/posts", payload);
-      return res.data;
+      return res.data as Post;
     },
-    onSuccess: () => {
+    onSuccess: (post) => {
       queryClient.invalidateQueries({ queryKey: ["forum-posts"] });
-      setShowCreate(false);
-      setTitle("");
-      setBody("");
+      setAbierto(false);
+      setTitulo("");
+      setCuerpo("");
+      navigate(`/foro/${post.id}`);
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAuthenticated()) {
-      navigate("/login");
-      return;
-    }
-    if (!title.trim() || !body.trim()) return;
-    createMutation.mutate({ title, body });
-  };
-
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
-
-  if (isLoading) return <div className="p-6 animate-pulse">Cargando foro...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error cargando foro</div>;
+  const totalPaginas = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold">Foro Comunitario</h1>
-        {isAuthenticated() && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            Nueva publicación
+    <div className="contenedor max-w-4xl py-10">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Foro</h1>
+          <p className="mt-2 text-tinta-suave">
+            Reseñas con compra verificada y conversaciones sobre lo que estamos leyendo.
+          </p>
+        </div>
+        {isAuthenticated() ? (
+          <button onClick={() => setAbierto((v) => !v)} className="btn btn-primario">
+            {abierto ? "Cerrar" : "Nueva publicación"}
           </button>
+        ) : (
+          <Link to="/login" className="btn btn-secundario">
+            Entrar para publicar
+          </Link>
         )}
-      </div>
+      </header>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-          {(
-            [
-              ["", "Todo"],
-              ["review", "Reseñas"],
-              ["discussion", "Conversaciones"],
-            ] as Array<[Kind, string]>
-          ).map(([value, label]) => (
+      {abierto && (
+        <form
+          className="panel mt-6 space-y-4 p-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!titulo.trim() || !cuerpo.trim()) return;
+            publicar.mutate({ title: titulo, body: cuerpo });
+          }}
+        >
+          <div>
+            <label htmlFor="titulo" className="etiqueta-campo">
+              Título
+            </label>
+            <input
+              id="titulo"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              minLength={3}
+              maxLength={160}
+              required
+              className="campo"
+              placeholder="¿Por dónde empiezo con Urasawa?"
+            />
+          </div>
+          <div>
+            <label htmlFor="cuerpo" className="etiqueta-campo">
+              Mensaje
+            </label>
+            <textarea
+              id="cuerpo"
+              value={cuerpo}
+              onChange={(e) => setCuerpo(e.target.value)}
+              minLength={10}
+              rows={6}
+              required
+              className="campo"
+            />
+          </div>
+          <p className="text-xs text-tinta-suave">
+            ¿Quieres reseñar con estrellas? Entra al título que compraste y usa «Escribir
+            reseña».
+          </p>
+          {publicar.isError && <Aviso tono="error">No pudimos publicar tu mensaje.</Aviso>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={publicar.isPending} className="btn btn-primario">
+              {publicar.isPending ? "Publicando…" : "Publicar"}
+            </button>
+            <button type="button" onClick={() => setAbierto(false)} className="btn btn-secundario">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1.5">
+          {TIPOS.map(([valor, etiqueta]) => (
             <button
-              key={label}
+              key={etiqueta}
               onClick={() => {
-                setKind(value);
-                setPage(1);
+                setTipo(valor);
+                setPagina(1);
               }}
-              className={`px-3 py-2 ${
-                kind === value ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+              aria-pressed={tipo === valor}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                tipo === valor
+                  ? "bg-morado text-white"
+                  : "bg-white text-tinta-suave hover:bg-morado-tenue"
               }`}
             >
-              {label}
+              {etiqueta}
             </button>
           ))}
         </div>
         <input
+          type="search"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            setPagina(1);
           }}
-          placeholder="Buscar en el foro..."
-          className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          placeholder="Buscar en el foro"
+          className="campo ml-auto max-w-xs"
         />
-        <span className="text-sm text-gray-500">{data?.total ?? 0} publicación(es)</span>
       </div>
 
       {productId && (
-        <div className="mb-4 flex items-center gap-3 text-sm bg-indigo-50 text-indigo-800 rounded-lg px-4 py-2">
-          Mostrando solo las publicaciones de este producto.
-          <Link to="/foro" className="underline">
-            Ver todo el foro
-          </Link>
+        <div className="mt-4">
+          <Aviso>
+            Viendo solo las publicaciones de este título.{" "}
+            <Link to="/foro" className="font-semibold underline underline-offset-4">
+              Ver todo el foro
+            </Link>
+          </Aviso>
         </div>
       )}
 
-      {showCreate && (
-        <div className="bg-white rounded-lg border border-gray-100 p-6 mb-6">
-          <h2 className="text-xl font-medium mb-4">Nueva publicación</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                minLength={3}
-                maxLength={160}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contenido</label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                required
-                minLength={10}
-                rows={6}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <p className="text-xs text-gray-500">
-              Para publicar una reseña con estrellas, entra al producto que compraste y usa
-              «Escribir reseña».
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {createMutation.isPending ? "Publicando..." : "Publicar"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+      {isLoading ? (
+        <Cargando texto="Cargando el foro" />
+      ) : error ? (
+        <div className="mt-8">
+          <ErrorCarga />
         </div>
-      )}
+      ) : data && data.items.length > 0 ? (
+        <>
+          <ul className="mt-6 space-y-3">
+            {data.items.map((post) => (
+              <li key={post.id}>
+                <Link
+                  to={`/foro/${post.id}`}
+                  className="panel flex gap-4 p-5 transition-colors hover:border-morado/40"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-morado-tenue font-bold text-morado">
+                    {post.author_username[0]?.toUpperCase() ?? "?"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-lg font-extrabold leading-snug">
+                        {post.title}
+                      </h2>
+                      {post.is_pinned && (
+                        <span className="insignia bg-durazno-tenue text-durazno-hondo">
+                          Fijado
+                        </span>
+                      )}
+                      {post.is_locked && (
+                        <span className="insignia bg-nube-hondo text-tinta-suave">
+                          Cerrado
+                        </span>
+                      )}
+                      {post.rating != null && (
+                        <span className="text-sm text-durazno">
+                          {"★".repeat(post.rating)}
+                          <span className="text-humo">{"★".repeat(5 - post.rating)}</span>
+                        </span>
+                      )}
+                    </div>
 
-      <div className="space-y-4">
-        {data?.items.map((post) => (
-          <Link key={post.id} to={`/foro/${post.id}`} className="block">
-            <div className="bg-white rounded-lg border border-gray-100 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
-                  {post.author_username[0]?.toUpperCase() ?? "?"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <h3 className="font-medium text-gray-900 truncate">{post.title}</h3>
-                    {post.is_pinned && <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded">Fijado</span>}
-                    {post.is_locked && <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Cerrado</span>}
-                    {post.rating && (
-                      <span className="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded">
-                        ⭐ {post.rating}/5
-                      </span>
-                    )}
                     {post.product && (
-                      <span className="px-2 py-0.5 text-xs bg-indigo-50 text-indigo-700 rounded">
-                        {post.product.title}
-                      </span>
+                      <p className="mt-1 text-sm text-morado">{post.product.title}</p>
                     )}
-                  </div>
-                  <p className="text-gray-600 line-clamp-2 mb-2">{post.body}</p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>{post.author_username}</span>
-                    <span>·</span>
-                    <span>{new Date(post.created_at).toLocaleDateString("es-CL")}</span>
-                    <span>·</span>
-                    <span>{post.comments_count} comentarios</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
 
-      {!data?.items.length && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">No hay publicaciones con ese filtro</p>
-          {isAuthenticated() && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              Crear una publicación
-            </button>
-          )}
-        </div>
-      )}
+                    <p className="mt-1.5 line-clamp-2 text-tinta-suave">{post.body}</p>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-8">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-40"
-          >
-            Anterior
-          </button>
-          <span className="text-sm text-gray-600">
-            Página {page} de {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-40"
-          >
-            Siguiente
-          </button>
+                    <p className="mt-3 text-xs text-tinta-suave">
+                      {post.author_username}
+                      <span className="mx-2 text-humo">|</span>
+                      {fecha(post.created_at)}
+                      <span className="mx-2 text-humo">|</span>
+                      {plural(post.comments_count, "comentario", "comentarios")}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambio={setPagina} />
+        </>
+      ) : (
+        <div className="mt-8">
+          <Vacio
+            titulo="No hay publicaciones con ese filtro"
+            texto="Prueba con otra categoría o escribe la primera."
+          />
         </div>
       )}
     </div>

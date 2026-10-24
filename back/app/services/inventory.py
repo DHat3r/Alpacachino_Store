@@ -146,8 +146,12 @@ def adjust_stock(db: Session, product_id: str, delta: int, reason: str, referenc
 
 
 def next_expiration() -> datetime:
-    """Calculate order expiration timestamp."""
-    return datetime.now(timezone.utc) + timedelta(minutes=settings.STOCK_RESERVATION_MINUTES)
+    """Calcula cuándo vence la reserva de un pedido nuevo.
+
+    El plazo depende del medio de pago (``settings.reservation_minutes``): minutos
+    con pasarela en línea, ``MANUAL_PAYMENT_HOURS`` con transferencia.
+    """
+    return datetime.now(timezone.utc) + timedelta(minutes=settings.reservation_minutes)
 
 
 def get_low_stock(threshold: int = 5) -> list[Inventory]:

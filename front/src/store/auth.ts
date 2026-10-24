@@ -8,6 +8,7 @@ interface User {
   role: string;
   is_active: boolean;
   is_verified: boolean;
+  created_at?: string;
 }
 
 interface AuthState {

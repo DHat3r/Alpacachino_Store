@@ -15,7 +15,7 @@ def public_config() -> dict:
         "currency": settings.CURRENCY,
         "shipping_cost": settings.SHIPPING_COST,
         "free_shipping_from": settings.FREE_SHIPPING_FROM,
-        "reservation_minutes": settings.STOCK_RESERVATION_MINUTES,
+        "reservation_minutes": settings.reservation_minutes,
         "payment_provider": provider,
         "terms_version": settings.TERMS_VERSION,
         "seller": {

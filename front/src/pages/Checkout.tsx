@@ -3,21 +3,27 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 type Estado = "exito" | "pendiente" | "error" | null;
 
-const MENSAJES: Record<Exclude<Estado, null>, { titulo: string; texto: string; destino: string }> = {
+const MENSAJES: Record<
+  Exclude<Estado, null>,
+  { titulo: string; texto: string; destino: string; boton: string }
+> = {
   exito: {
-    titulo: "¡Pago aprobado!",
-    texto: "Tu pedido está confirmado y lo prepararemos a la brevedad.",
+    titulo: "Pago aprobado",
+    texto: "Tu pedido quedó confirmado y lo preparamos en las próximas horas.",
     destino: "/mis-pedidos",
+    boton: "Ver mis pedidos",
   },
   pendiente: {
-    titulo: "Pago pendiente",
-    texto: "Te avisaremos por correo cuando la pasarela confirme el pago.",
+    titulo: "Pago en revisión",
+    texto: "Te avisamos por correo apenas la pasarela confirme la transacción.",
     destino: "/mis-pedidos",
+    boton: "Ver mis pedidos",
   },
   error: {
     titulo: "El pago no se completó",
-    texto: "No se realizó ningún cobro. Puedes revisar tu carrito e intentarlo otra vez.",
+    texto: "No se realizó ningún cobro. Puedes revisar el carrito e intentarlo otra vez.",
     destino: "/carrito",
+    boton: "Volver al carrito",
   },
 };
 
@@ -36,7 +42,7 @@ export default function Checkout() {
     }, 1000);
     const timeout = window.setTimeout(
       () => navigate(MENSAJES[status].destino, { replace: true }),
-      3000
+      3000,
     );
     return () => {
       window.clearInterval(interval);
@@ -46,17 +52,14 @@ export default function Checkout() {
 
   if (!status || !MENSAJES[status]) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="max-w-md w-full text-center">
-          <h2 className="text-xl font-medium text-gray-900">No hay un pago en curso</h2>
-          <p className="text-gray-500 mt-2">Vuelve al catálogo para continuar comprando.</p>
-          <button
-            onClick={() => navigate("/catalogo")}
-            className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            Ir al catálogo
-          </button>
-        </div>
+      <div className="contenedor py-20 text-center">
+        <h1 className="font-display text-2xl font-extrabold">No hay un pago en curso</h1>
+        <p className="mt-2 text-tinta-suave">
+          Vuelve al catálogo para seguir comprando.
+        </p>
+        <button onClick={() => navigate("/catalogo")} className="btn btn-primario mt-6">
+          Ir al catálogo
+        </button>
       </div>
     );
   }
@@ -65,26 +68,26 @@ export default function Checkout() {
   const ok = status !== "error";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="max-w-md w-full text-center">
+    <div className="contenedor py-20">
+      <div className="panel mx-auto max-w-md p-8 text-center">
         <div
-          className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl ${
-            ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold ${
+            ok ? "bg-exito-tenue text-exito" : "bg-alerta-tenue text-alerta"
           }`}
           aria-hidden
         >
           {ok ? "✓" : "!"}
         </div>
-        <h2 className="text-2xl font-semibold text-gray-900">{mensaje.titulo}</h2>
-        <p className="text-gray-600 mt-2">{mensaje.texto}</p>
-        <p className="text-sm text-gray-400 mt-4">
-          Te llevaremos en {cuenta} segundo{cuenta === 1 ? "" : "s"}...
+        <h1 className="mt-5 font-display text-2xl font-extrabold">{mensaje.titulo}</h1>
+        <p className="mt-2 text-tinta-suave">{mensaje.texto}</p>
+        <p className="mt-4 text-sm text-tinta-suave/70">
+          Te llevamos en {cuenta} {cuenta === 1 ? "segundo" : "segundos"}…
         </p>
         <button
           onClick={() => navigate(mensaje.destino, { replace: true })}
-          className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="btn btn-primario mt-6"
         >
-          {status === "error" ? "Volver al carrito" : "Ver mis pedidos"}
+          {mensaje.boton}
         </button>
       </div>
     </div>

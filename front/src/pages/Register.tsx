@@ -1,22 +1,27 @@
 import { useState } from "react";
-import { useAuth } from "../store/auth";
+import { Link, useNavigate } from "react-router-dom";
+
+import Alpaca from "../components/Alpaca";
+import { Aviso } from "../components/ui";
 import { api } from "../api/client";
+import { useAuth } from "../store/auth";
 
 export default function Register() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [confirmacion, setConfirmacion] = useState("");
+  const [terminos, setTerminos] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { setTokens, setUser } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+    if (password !== confirmacion) {
+      setError("Las contraseñas no coinciden.");
       return;
     }
     setLoading(true);
@@ -25,125 +30,138 @@ export default function Register() {
         email,
         username,
         password,
-        accept_terms: acceptTerms,
+        accept_terms: terminos,
       });
-      const loginRes = await api.post("/auth/login", new URLSearchParams({ username: email, password }), {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
+      const loginRes = await api.post(
+        "/auth/login",
+        new URLSearchParams({ username: email, password }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
+      );
       const { access_token, refresh_token } = loginRes.data;
       setTokens(access_token, refresh_token);
       const me = await api.get("/auth/me");
       setUser(me.data);
-      window.location.href = "/";
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Error al registrar");
+      navigate("/");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+        ?.detail;
+      setError(
+        typeof detail === "string" ? detail : "No pudimos crear la cuenta. Revisa los datos.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="text-center text-3xl font-bold text-gray-900">Crear cuenta</h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">Correo electrónico</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Correo electrónico"
-              />
-            </div>
-            <div>
-              <label htmlFor="username" className="sr-only">Usuario</label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                autoComplete="username"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Usuario"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Contraseña</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña (mín. 8 chars, mayúscula, minúscula, número)"
-              />
-            </div>
-            <div>
-              <label htmlFor="confirmPassword" className="sr-only">Confirmar contraseña</label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirmar contraseña"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="flex items-start gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                required
-                className="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span>
-                Acepto los{" "}
-                <a href="/terminos" className="text-indigo-600 hover:text-indigo-500">
-                  términos y condiciones
-                </a>{" "}
-                y la política de privacidad.
-              </span>
-            </label>
-          </div>
-          <div>
-            <button
-              type="submit"
-              disabled={loading || !acceptTerms}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? "Creando cuenta..." : "Crear cuenta"}
-            </button>
-          </div>
-        </form>
-        <p className="text-center text-sm text-gray-600">
-          ¿Ya tienes cuenta? <a href="/login" className="text-indigo-600 hover:text-indigo-500">Inicia sesión</a>
+    <div className="contenedor max-w-md py-16">
+      <div className="text-center">
+        <Alpaca className="mx-auto h-14 w-14 text-morado" />
+        <h1 className="mt-4 font-display text-3xl font-extrabold">Crear cuenta</h1>
+        <p className="mt-2 text-tinta-suave">
+          Con una cuenta compras, sigues tus pedidos y publicas en el foro.
         </p>
       </div>
+
+      <form className="panel mt-8 space-y-4 p-6" onSubmit={enviar}>
+        {error && <Aviso tono="error">{error}</Aviso>}
+
+        <div>
+          <label htmlFor="email" className="etiqueta-campo">
+            Correo electrónico
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="campo"
+            placeholder="tu@correo.cl"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="username" className="etiqueta-campo">
+            Nombre en el foro
+          </label>
+          <input
+            id="username"
+            required
+            minLength={3}
+            maxLength={32}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="campo"
+            placeholder="alpaquita_lectora"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="etiqueta-campo">
+            Contraseña
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="campo"
+          />
+          <p className="mt-1 text-xs text-tinta-suave">Al menos 8 caracteres.</p>
+        </div>
+
+        <div>
+          <label htmlFor="confirmacion" className="etiqueta-campo">
+            Repite la contraseña
+          </label>
+          <input
+            id="confirmacion"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={confirmacion}
+            onChange={(e) => setConfirmacion(e.target.value)}
+            className="campo"
+          />
+        </div>
+
+        <label className="flex items-start gap-2.5 text-sm text-tinta-suave">
+          <input
+            type="checkbox"
+            checked={terminos}
+            onChange={(e) => setTerminos(e.target.checked)}
+            required
+            className="mt-0.5 h-4 w-4 rounded border-humo accent-morado"
+          />
+          <span>
+            Acepto los{" "}
+            <Link to="/terminos" className="enlace">
+              términos de compra
+            </Link>{" "}
+            y la{" "}
+            <Link to="/privacidad" className="enlace">
+              política de privacidad
+            </Link>
+            .
+          </span>
+        </label>
+
+        <button type="submit" disabled={loading} className="btn btn-primario w-full">
+          {loading ? "Creando cuenta…" : "Crear cuenta"}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-tinta-suave">
+        ¿Ya tienes cuenta?{" "}
+        <Link to="/login" className="enlace">
+          Entra acá
+        </Link>
+      </p>
     </div>
   );
 }
