@@ -39,3 +39,9 @@ pgdata/
 .DS_Store
 Thumbs.db
 desktop.ini
+DEPLOY.md
+hola.md
+
+# ── Artefactos de build y notas locales ──────────────────────
+*.tsbuildinfo
+CAMBIOS_PENDIENTES.md
