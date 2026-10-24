@@ -45,3 +45,5 @@ hola.md
 # ── Artefactos de build y notas locales ──────────────────────
 *.tsbuildinfo
 CAMBIOS_PENDIENTES.md
+STATUS.md
+Status.md
