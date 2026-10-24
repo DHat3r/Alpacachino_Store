@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../store/auth";
 
 export default function Home() {
+  const user = useAuth((s) => s.user);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
       <nav className="bg-white shadow-sm border-b border-gray-100">
@@ -16,6 +19,11 @@ export default function Home() {
               <Link to="/foro" className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">
                 Foro
               </Link>
+              {user?.role === "admin" && (
+                <Link to="/admin" className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">
+                  Administración
+                </Link>
+              )}
             </div>
           </div>
         </div>

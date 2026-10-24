@@ -13,6 +13,7 @@ import Forum from "./pages/Forum";
 import PostDetail from "./pages/PostDetail";
 import MyOrders from "./pages/MyOrders";
 import OrderDetail from "./pages/OrderDetail";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,13 @@ const queryClient = new QueryClient({
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+/** Solo para administradores: exige sesión y rol admin. */
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, hasRole } = useAuth();
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  return hasRole(["admin"]) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 export default function App() {
@@ -56,6 +64,14 @@ export default function App() {
               <ProtectedRoute>
                 <OrderDetail />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
             }
           />
         </Routes>
