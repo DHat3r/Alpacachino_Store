@@ -2,42 +2,118 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../store/cart";
 import { useAuth } from "../store/auth";
 import { api } from "../api/client";
+import { useConfig } from "../api/config";
 import { useState } from "react";
+
+interface CheckoutResponse {
+  order_id: number;
+  payment_provider: string;
+  payment_url: string | null;
+  payment_token: string | null;
+  payment_instructions: unknown;
+}
+
+/** Webpay exige enviar el token por POST de formulario, no por redirección. */
+function submitWebpayForm(url: string, token: string) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = url;
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "token_ws";
+  input.value = token;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+const REGIONES = [
+  "Arica y Parinacota",
+  "Tarapacá",
+  "Antofagasta",
+  "Atacama",
+  "Coquimbo",
+  "Valparaíso",
+  "Metropolitana",
+  "O'Higgins",
+  "Maule",
+  "Ñuble",
+  "Biobío",
+  "Araucanía",
+  "Los Ríos",
+  "Los Lagos",
+  "Aysén",
+  "Magallanes",
+];
 
 export default function Cart() {
   const { items, remove, setQty, clear, total, itemCount } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [address, setAddress] = useState("");
+  const { data: config } = useConfig();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    shipping_name: "",
+    shipping_phone: "",
+    shipping_region: "Metropolitana",
+    shipping_comuna: "",
+    shipping_address: "",
+    shipping_notes: "",
+  });
+
+  const shippingCost = config?.shipping_cost ?? 3500;
+  const freeFrom = config?.free_shipping_from ?? 30000;
+  const shipping = total() >= freeFrom ? 0 : shippingCost;
+
+  const update = (key: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const handleCheckout = async () => {
     if (!isAuthenticated()) {
       navigate("/login");
       return;
     }
-    if (!address.trim()) {
-      alert("Por favor ingresa tu dirección de envío");
+    setError("");
+
+    if (form.shipping_address.trim().length < 10) {
+      setError("Ingresa una dirección de envío completa (calle, número y comuna).");
+      return;
+    }
+    if (form.shipping_phone.trim().length < 6) {
+      setError("Ingresa un teléfono de contacto válido.");
       return;
     }
     if (items.length === 0) return;
 
     setLoading(true);
     try {
-      const res = await api.post("/orders/checkout", {
+      const res = await api.post<CheckoutResponse>("/orders/checkout", {
         items: items.map((i) => ({ product_id: i.productId, quantity: i.quantity })),
-        shipping_address: address,
+        ...form,
       });
+
+      const data = res.data;
       clear();
-      if (res.data.payment_url) {
-        window.location.href = res.data.payment_url;
-      } else {
-        // La pasarela no está configurada: el pedido quedó reservado.
-        alert("Pedido creado. La pasarela de pago no está disponible; revisa tus pedidos.");
-        navigate(`/pedido/${res.data.order_id}`);
+
+      if (data.payment_provider === "webpay" && data.payment_url && data.payment_token) {
+        submitWebpayForm(data.payment_url, data.payment_token);
+        return;
       }
+
+      if (data.payment_url) {
+        window.location.href = data.payment_url;
+        return;
+      }
+
+      // Sin pasarela (pago manual o no configurada): el pedido ya está reservado.
+      navigate(`/pedido/${data.order_id}`, {
+        state: { paymentInstructions: data.payment_instructions },
+      });
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Error al crear el pedido");
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "No pudimos crear el pedido.");
     } finally {
       setLoading(false);
     }
@@ -108,38 +184,102 @@ export default function Cart() {
         <div className="flex justify-between mb-4">
           <span className="text-gray-600">Envío</span>
           <span className="font-medium">
-            {total() >= 30000 ? "Gratis" : "$3.500"}
+            {shipping === 0 ? "Gratis" : `$${shipping.toLocaleString("es-CL")}`}
           </span>
         </div>
         <div className="border-t pt-4 flex justify-between text-lg font-bold">
           <span>Total</span>
-          <span>${(total() + (total() >= 30000 ? 0 : 3500)).toLocaleString("es-CL")}</span>
+          <span>${(total() + shipping).toLocaleString("es-CL")}</span>
         </div>
 
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Dirección de envío
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="font-medium text-gray-700">Nombre y apellido</span>
+            <input
+              value={form.shipping_name}
+              onChange={update("shipping_name")}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Ana Pérez"
+              autoComplete="name"
+            />
           </label>
-          <textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Calle, número, comuna, ciudad, código postal..."
-            required
-          />
+          <label className="block text-sm">
+            <span className="font-medium text-gray-700">Teléfono</span>
+            <input
+              value={form.shipping_phone}
+              onChange={update("shipping_phone")}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="+56 9 1234 5678"
+              autoComplete="tel"
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium text-gray-700">Región</span>
+            <select
+              value={form.shipping_region}
+              onChange={update("shipping_region")}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {REGIONES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium text-gray-700">Comuna</span>
+            <input
+              value={form.shipping_comuna}
+              onChange={update("shipping_comuna")}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Providencia"
+            />
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="font-medium text-gray-700">Dirección de envío</span>
+            <textarea
+              value={form.shipping_address}
+              onChange={update("shipping_address")}
+              rows={2}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Calle, número, departamento, código postal..."
+              required
+            />
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="font-medium text-gray-700">Notas para el reparto (opcional)</span>
+            <input
+              value={form.shipping_notes}
+              onChange={update("shipping_notes")}
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Ej.: dejar con conserje"
+            />
+          </label>
         </div>
+
+        {error && (
+          <div role="alert" className="mt-4 bg-red-50 text-red-700 text-sm rounded-lg p-3">
+            {error}
+          </div>
+        )}
 
         <button
           onClick={handleCheckout}
-          disabled={loading || !address.trim()}
+          disabled={loading}
           className="mt-6 w-full py-3 px-6 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {loading ? "Procesando..." : "Ir a pagar"}
+          {loading ? "Procesando..." : "Confirmar pedido"}
         </button>
 
         <p className="mt-4 text-center text-sm text-gray-500">
-          {total() < 30000 && <span>Envío gratis en compras sobre $30.000 (faltan ${(30000 - total()).toLocaleString("es-CL")})</span>}
+          {total() < freeFrom && (
+            <span>
+              Envío gratis en compras sobre ${freeFrom.toLocaleString("es-CL")} (faltan $
+              {(freeFrom - total()).toLocaleString("es-CL")})
+            </span>
+          )}
         </p>
       </div>
     </div>

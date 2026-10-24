@@ -14,6 +14,8 @@ import PostDetail from "./pages/PostDetail";
 import MyOrders from "./pages/MyOrders";
 import OrderDetail from "./pages/OrderDetail";
 import Admin from "./pages/Admin";
+import Legal from "./pages/Legal";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +52,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/foro" element={<Forum />} />
           <Route path="/foro/:id" element={<PostDetail />} />
+          <Route path="/terminos" element={<Legal />} />
           <Route
             path="/mis-pedidos"
             element={
@@ -74,6 +77,7 @@ export default function App() {
               </AdminRoute>
             }
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

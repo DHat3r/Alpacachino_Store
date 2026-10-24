@@ -7,6 +7,7 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { setTokens, setUser } = useAuth();
@@ -20,7 +21,12 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await api.post("/auth/register", { email, username, password });
+      await api.post("/auth/register", {
+        email,
+        username,
+        password,
+        accept_terms: acceptTerms,
+      });
       const loginRes = await api.post("/auth/login", new URLSearchParams({ username: email, password }), {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
@@ -107,9 +113,27 @@ export default function Register() {
             </div>
           </div>
           <div>
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                required
+                className="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>
+                Acepto los{" "}
+                <a href="/terminos" className="text-indigo-600 hover:text-indigo-500">
+                  términos y condiciones
+                </a>{" "}
+                y la política de privacidad.
+              </span>
+            </label>
+          </div>
+          <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !acceptTerms}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {loading ? "Creando cuenta..." : "Crear cuenta"}

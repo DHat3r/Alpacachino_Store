@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAuth } from "../store/auth";
@@ -11,6 +11,7 @@ interface Post {
   title: string;
   body: string;
   product_id: string | null;
+  product: { id: string; sku: string; title: string } | null;
   rating: number | null;
   is_hidden: boolean;
   is_pinned: boolean;
@@ -37,6 +38,11 @@ export default function PostDetail() {
   const queryClient = useQueryClient();
   const { isAuthenticated, user, hasRole } = useAuth();
   const [commentBody, setCommentBody] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [editingPost, setEditingPost] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [postBody, setPostBody] = useState("");
 
   const { data: post, isLoading: postLoading, error: postError } = useQuery({
     queryKey: ["forum-post", id],
@@ -77,6 +83,42 @@ export default function PostDetail() {
     },
   });
 
+  const editCommentMutation = useMutation({
+    mutationFn: async ({ commentId, body }: { commentId: number; body: string }) => {
+      const res = await api.patch(`/forum/comments/${commentId}`, { body });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["forum-comments", id] });
+      setEditingId(null);
+      setEditBody("");
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: number) => {
+      await api.delete(`/forum/comments/${commentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["forum-comments", id] });
+    },
+  });
+
+  const updatePostMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.patch(`/forum/posts/${id}`, {
+        title: postTitle,
+        body: postBody,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["forum-post", id] });
+      queryClient.invalidateQueries({ queryKey: ["forum-posts"] });
+      setEditingPost(false);
+    },
+  });
+
   const canEdit = isAuthenticated() && (user?.id === post?.author_id || hasRole(["admin", "moderator"]));
   const canModerate = hasRole(["admin", "moderator"]);
 
@@ -101,6 +143,55 @@ export default function PostDetail() {
       </nav>
 
       <article className="bg-white rounded-lg border border-gray-100 p-6 mb-6">
+        {editingPost ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updatePostMutation.mutate();
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+              <input
+                value={postTitle}
+                onChange={(e) => setPostTitle(e.target.value)}
+                minLength={3}
+                maxLength={160}
+                required
+                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contenido</label>
+              <textarea
+                value={postBody}
+                onChange={(e) => setPostBody(e.target.value)}
+                minLength={10}
+                rows={6}
+                required
+                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={updatePostMutation.isPending}
+                className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Guardar cambios
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingPost(false)}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
         <div className="flex items-center gap-2 mb-3">
           <h1 className="text-2xl font-bold text-gray-900">{post.title}</h1>
           {post.is_pinned && <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded">Fijado</span>}
@@ -121,6 +212,14 @@ export default function PostDetail() {
               <span>Editado: {new Date(post.updated_at).toLocaleString("es-CL")}</span>
             </>
           )}
+          {post.product && (
+            <>
+              <span>·</span>
+              <Link to={`/producto/${post.product.sku}`} className="text-indigo-600 hover:text-indigo-500">
+                {post.product.title}
+              </Link>
+            </>
+          )}
         </div>
         <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">
           {post.body}
@@ -128,7 +227,14 @@ export default function PostDetail() {
 
         <div className="mt-4 flex gap-2">
           {canEdit && (
-            <button className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">
+            <button
+              onClick={() => {
+                setPostTitle(post.title);
+                setPostBody(post.body);
+                setEditingPost(true);
+              }}
+              className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+            >
               Editar
             </button>
           )}
@@ -143,6 +249,8 @@ export default function PostDetail() {
             </button>
           )}
         </div>
+          </>
+        )}
       </article>
 
       <section className="mb-6">
@@ -188,11 +296,62 @@ export default function PostDetail() {
                   {comment.author_username[0].toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-medium text-gray-900">{comment.author_username}</span>
                     <span className="text-sm text-gray-500">{new Date(comment.created_at).toLocaleString("es-CL")}</span>
+                    {(user?.id === comment.author_id || canModerate) && editingId !== comment.id && (
+                      <span className="ml-auto flex gap-2 text-xs">
+                        <button
+                          onClick={() => {
+                            setEditingId(comment.id);
+                            setEditBody(comment.body);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-500"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("¿Eliminar este comentario?")) {
+                              deleteCommentMutation.mutate(comment.id);
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-500"
+                        >
+                          Eliminar
+                        </button>
+                      </span>
+                    )}
                   </div>
-                  <p className="text-gray-700">{comment.body}</p>
+                  {editingId === comment.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        rows={3}
+                        className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() =>
+                            editCommentMutation.mutate({ commentId: comment.id, body: editBody })
+                          }
+                          disabled={!editBody.trim() || editCommentMutation.isPending}
+                          className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-700 whitespace-pre-wrap">{comment.body}</p>
+                  )}
                 </div>
               </div>
             </div>

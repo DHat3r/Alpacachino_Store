@@ -15,7 +15,10 @@ interface Product {
   price: number;
   cover_url: string | null;
   category: { name: string } | null;
-  available_stock: number;
+  inventory_quantity: number;
+  inventory_reserved: number;
+  rating_avg: number | null;
+  reviews_count: number;
 }
 
 export default function ProductDetail() {
@@ -48,6 +51,8 @@ export default function ProductDetail() {
   if (isLoading) return <div className="p-6 animate-pulse">Cargando...</div>;
   if (error || !product) return <div className="p-6 text-center text-red-600">Producto no encontrado</div>;
 
+  const stock = product.inventory_quantity - product.inventory_reserved;
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <nav className="mb-6 text-sm text-gray-500">
@@ -68,6 +73,15 @@ export default function ProductDetail() {
         <div>
           <p className="text-sm text-gray-500 mb-1">{product.category?.name || "Sin categoría"}</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.title}</h1>
+          {product.rating_avg != null && (
+            <a
+              href={`/foro?producto=${product.id}`}
+              className="inline-block text-amber-600 hover:text-amber-700 mb-2"
+            >
+              ⭐ {product.rating_avg.toFixed(1)} · {product.reviews_count} reseña
+              {product.reviews_count === 1 ? "" : "s"}
+            </a>
+          )}
           {product.author && <p className="text-gray-600 mb-1">Autor: {product.author}</p>}
           {product.publisher && <p className="text-gray-600 mb-1">Editorial: {product.publisher}</p>}
           {product.isbn && <p className="text-gray-600 mb-4">ISBN: {product.isbn}</p>}
@@ -77,8 +91,8 @@ export default function ProductDetail() {
           </p>
 
           <p className="text-sm text-gray-500 mb-4">
-            Stock disponible: <span className={product.available_stock > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-              {product.available_stock}
+            Stock disponible: <span className={stock > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+              {stock}
             </span>
           </p>
 
@@ -106,10 +120,10 @@ export default function ProductDetail() {
             </div>
             <button
               onClick={handleAddToCart}
-              disabled={product.available_stock === 0}
+              disabled={stock === 0}
               className="flex-1 py-3 px-6 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              {product.available_stock === 0 ? "Agotado" : "Agregar al carrito"}
+              {stock === 0 ? "Agotado" : "Agregar al carrito"}
             </button>
           </div>
         </div>
