@@ -1,0 +1,41 @@
+# ── Secretos y entorno ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── Node ─────────────────────────────────────────────────────
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-error.log*
+
+# ── Datos y artefactos ───────────────────────────────────────
+data/*.xlsx
+data/*.csv
+*.sqlite3
+*.dump
+*.log
+celerybeat-schedule*
+
+# ── Docker ───────────────────────────────────────────────────
+pgdata/
+
+# ── Editores / sistema ───────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
