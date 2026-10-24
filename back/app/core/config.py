@@ -72,10 +72,25 @@ class Settings(BaseSettings):
         # Prioridad 1: URL completa (Supabase, Render, Neon…)
         if self.DATABASE_URL:
             url = self.DATABASE_URL.strip()
+
+            # Error típico: pegar la URL HTTPS de la API en DATABASE_URL.
+            if url.startswith(("http://", "https://")):
+                raise ValueError(
+                    "DATABASE_URL debe ser una cadena de PostgreSQL "
+                    "(postgresql://usuario:clave@host:5432/base), no la URL "
+                    "HTTPS de Supabase. Esa última va en SUPABASE_URL."
+                )
+
             if url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql+psycopg://", 1)
             elif url.startswith("postgresql://"):
                 url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+            if not url.startswith("postgresql"):
+                raise ValueError(
+                    "DATABASE_URL inválida: debe empezar con postgresql:// "
+                    "o postgres://."
+                )
             return url
 
         # Prioridad 2: variables individuales (docker-compose local)
