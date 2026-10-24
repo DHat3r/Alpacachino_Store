@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────── Backend ───────────────────────────
+  backend:
+    name: Backend · pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: alpaca
+          POSTGRES_PASSWORD: alpaca_test_pass
+          POSTGRES_DB: alpacachino
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U alpaca -d alpacachino"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      ENV: test
+      DEBUG: "false"
+      SECRET_KEY: clave-de-pruebas-con-mas-de-32-caracteres-para-ci
+      POSTGRES_USER: alpaca
+      POSTGRES_PASSWORD: alpaca_test_pass
+      POSTGRES_DB: alpacachino
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/2
+
+    defaults:
+      run:
+        working-directory: back
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: back/requirements.txt
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validar migraciones Alembic
+        run: alembic upgrade head
+
+      - name: Ejecutar pruebas
+        run: pytest -q --maxfail=1
+        # La suite crea por sí sola la base <POSTGRES_DB>_test
+
+  # ─────────────────────────── Frontend ──────────────────────────
+  frontend:
+    name: Frontend · build + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: front
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Pruebas unitarias (Vitest)
+        run: npm test
+
+      - name: Compilar (TypeScript + Vite)
+        run: npm run build
+
+      - name: Subir artefacto del build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: front/dist
+          retention-days: 7
+
+  # ───────────────────────── Imágenes Docker ─────────────────────
+  docker:
+    name: Docker · imágenes de producción
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir imagen API (producción)
+        run: |
+          docker build \
+            --target production \
+            -t alpacachino-api:ci ./back
+
+      - name: Construir imagen Web (producción)
+        run: |
+          docker build \
+            --target production \
+            -t alpacachino-web:ci ./front

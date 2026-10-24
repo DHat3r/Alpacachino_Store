@@ -26,11 +26,12 @@ FROM base AS production
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt gunicorn
 COPY . .
-RUN useradd -m -u 10001 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 10001 appuser \
+ && sed -i 's/\r$//' scripts/start.sh \
+ && chmod +x scripts/start.sh \
+ && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://localhost:8000/api/health || exit 1
-CMD ["gunicorn", "app.main:app", \
-     "-k", "uvicorn.workers.UvicornWorker", \
-     "-w", "2", "-b", "0.0.0.0:8000", "--timeout", "60"]
+CMD ["sh", "scripts/start.sh"]

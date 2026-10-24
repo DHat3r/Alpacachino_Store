@@ -1,42 +1,65 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useAuth } from "./store/auth";
 
-type Health = { status: string; env: string };
+import Home from "./pages/Home";
+import Catalog from "./pages/Catalog";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Forum from "./pages/Forum";
+import PostDetail from "./pages/PostDetail";
+import MyOrders from "./pages/MyOrders";
+import OrderDetail from "./pages/OrderDetail";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+    },
+  },
+});
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+}
 
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<Health>;
-      })
-      .then(setHealth)
-      .catch((err: Error) => setError(err.message));
-  }, []);
-
   return (
-    <main className="wrap">
-      <h1>🦙 AlpacachinoStore</h1>
-      <p className="sub">Base del frontend en React + Vite sobre Docker.</p>
-
-      <section className="card">
-        <h2>Estado del entorno</h2>
-        {health && (
-          <p className="ok">
-            API conectada ✅ — <code>{health.status}</code> ({health.env})
-          </p>
-        )}
-        {error && <p className="error">Sin conexión con la API: {error}</p>}
-        {!health && !error && <p className="pending">Consultando la API…</p>}
-        <ul>
-          <li>Frontend: http://localhost:5173</li>
-          <li>API + Swagger: http://localhost:8001/docs</li>
-          <li>Adminer (BD): http://localhost:8081</li>
-          <li>MailHog: http://localhost:8025</li>
-        </ul>
-      </section>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/catalogo" element={<Catalog />} />
+          <Route path="/producto/:sku" element={<ProductDetail />} />
+          <Route path="/carrito" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/foro" element={<Forum />} />
+          <Route path="/foro/:id" element={<PostDetail />} />
+          <Route
+            path="/mis-pedidos"
+            element={
+              <ProtectedRoute>
+                <MyOrders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pedido/:id"
+            element={
+              <ProtectedRoute>
+                <OrderDetail />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

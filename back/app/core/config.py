@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     PUBLIC_API_URL: str = "http://localhost:8000"
 
     # ── Base de datos ────────────────────────────────────────
+    DATABASE_URL: str = ""
     POSTGRES_USER: str = "alpaca"
     POSTGRES_PASSWORD: str = "alpaca_dev_pass"
     POSTGRES_DB: str = "alpacachino"
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        # Prioridad 1: URL completa (Supabase, Render, Neon…)
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL.strip()
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return url
+
+        # Prioridad 2: variables individuales (docker-compose local)
         return (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

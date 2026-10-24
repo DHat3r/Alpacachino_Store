@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────
+#  Despliegue del backend en Render (Infrastructure as Code)
+#  Docs: https://render.com/docs/blueprint-spec
+#  La base de datos vive en Supabase (ver DEPLOY.md).
+# ─────────────────────────────────────────────────────────────
+services:
+  # ── API FastAPI (Docker) ─────────────────────────────────────
+  - type: web
+    name: alpacachino-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./back/Dockerfile
+    dockerContext: ./back
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false                      # pegar cadena de Supabase
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: alpacachino-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: alpacachino-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: alpacachino-redis
+          property: connectionString
+      - key: BACKEND_CORS_ORIGINS
+        sync: false                      # https://alpacachino.vercel.app
+      - key: PUBLIC_SITE_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_PUBLIC_KEY
+        sync: false
+      - key: WEBPAY_COMMERCE_CODE
+        sync: false
+      - key: WEBPAY_API_KEY
+        sync: false
+
+  # ── Worker Celery ────────────────────────────────────────────
+  - type: worker
+    name: alpacachino-worker
+    runtime: docker
+    plan: starter                        # los workers no tienen plan free
+    region: oregon
+    dockerfilePath: ./back/Dockerfile
+    dockerContext: ./back
+    dockerCommand: celery -A app.tasks worker --loglevel=info --concurrency=2
+    autoDeploy: true
+    envVars:
+      - fromGroup: alpacachino-backend
+
+  # ── Beat (tareas programadas) ────────────────────────────────
+  - type: worker
+    name: alpacachino-beat
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./back/Dockerfile
+    dockerContext: ./back
+    dockerCommand: celery -A app.tasks beat --loglevel=info
+    autoDeploy: true
+    envVars:
+      - fromGroup: alpacachino-backend
+
+  # ── Redis (broker + backend de resultados) ───────────────────
+  - type: redis
+    name: alpacachino-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+envVarGroups:
+  - name: alpacachino-backend
+    envVars:
+      - key: ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_SITE_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
