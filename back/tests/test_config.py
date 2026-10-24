@@ -6,7 +6,7 @@ from app.core.config import Settings
 
 
 def _settings(**overrides) -> Settings:
-    base = {"SECRET_KEY": "x" * 32}
+    base = {"SECRET_KEY": "x" * 32, "DATABASE_URL": ""}
     base.update(overrides)
     return Settings(**base)
 

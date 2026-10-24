@@ -78,16 +78,22 @@ def _supabase_status() -> str:
 
 def _print_report() -> None:
     info = _info()
-    stock = keepalive.check_stock_once()
     print(f"destino     : {_target()}")
     print(f"base        : {info['db']}  usuario: {info['usuario']}")
     print(f"servidor    : PostgreSQL {info['version']}")
     print(f"ssl         : {info['ssl']}")
     print(f"alembic     : {info['alembic']}")
-    print(
-        "inventario  : {products} producto(s), {available} unidad(es) disponible(s), "
-        "{inconsistent} inconsistente(s)".format(**stock)
-    )
+    try:
+        stock = keepalive.check_stock_once()
+        print(
+            "inventario  : {products} producto(s), {available} unidad(es) disponible(s), "
+            "{inconsistent} inconsistente(s)".format(**stock)
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"inventario  : no disponible ({type(exc).__name__}). "
+            "¿Falta correr 'alembic upgrade head'?"
+        )
     print(f"supabase    : {_supabase_status()}")
     if not settings.DATABASE_URL:
         print(
