@@ -234,7 +234,15 @@ def update_post(
     db.commit()
     db.refresh(post)
 
-    return _post_out(post, 0)
+    count = (
+        db.query(func.count(ForumComment.id))
+        .filter(
+            ForumComment.post_id == post.id,
+            ForumComment.is_hidden.is_(False),
+        )
+        .scalar()
+    )
+    return _post_out(post, count or 0)
 
 
 @router.delete("/posts/{post_id}", status_code=204)

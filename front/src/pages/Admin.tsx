@@ -5,6 +5,9 @@ import { api } from "../api/client";
 import { useAuth } from "../store/auth";
 import { textoEstado } from "../components/ui";
 import { clp, fechaHora } from "../lib/format";
+import CategoriasTab from "./admin/CategoriasTab";
+import ModeracionTab from "./admin/ModeracionTab";
+import ProductosTab from "./admin/ProductosTab";
 
 /* ── Tipos ─────────────────────────────────────────────────── */
 
@@ -76,7 +79,14 @@ interface Health {
   };
 }
 
-type Tab = "resumen" | "inventario" | "pedidos" | "usuarios";
+type Tab =
+  | "resumen"
+  | "productos"
+  | "categorias"
+  | "inventario"
+  | "pedidos"
+  | "moderacion"
+  | "usuarios";
 
 const ORDER_STATUSES = [
   "pending",
@@ -120,8 +130,11 @@ export default function Admin() {
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "resumen", label: "Resumen" },
+    { id: "productos", label: "Productos" },
+    { id: "categorias", label: "Categorías" },
     { id: "inventario", label: "Inventario" },
     { id: "pedidos", label: "Pedidos" },
+    { id: "moderacion", label: "Moderación" },
     { id: "usuarios", label: "Usuarios" },
   ];
 
@@ -149,8 +162,11 @@ export default function Admin() {
         </div>
 
         {tab === "resumen" && <DashboardTab />}
+        {tab === "productos" && <ProductosTab />}
+        {tab === "categorias" && <CategoriasTab />}
         {tab === "inventario" && <InventoryTab />}
         {tab === "pedidos" && <OrdersTab />}
+        {tab === "moderacion" && <ModeracionTab />}
         {tab === "usuarios" && <UsersTab />}
       </div>
     </div>
@@ -174,7 +190,7 @@ function DashboardTab() {
   const cards = [
     { label: "Productos activos", value: data.total_products, accent: "text-morado-texto" },
     { label: "Pedidos totales", value: data.total_orders, accent: "text-tinta" },
-    { label: "Pedidos pendientes", value: data.pending_orders, accent: "text-yellow-600" },
+    { label: "Pedidos pendientes", value: data.pending_orders, accent: "text-durazno-hondo" },
     { label: "Pedidos pagados", value: data.paid_orders, accent: "text-exito" },
     {
       label: "Ingresos del mes",
@@ -244,7 +260,7 @@ function SystemStatus() {
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
         <div>
           <dt className="text-tinta-suave">API</dt>
-          <dd className={`font-semibold ${data.status === "ok" ? "text-exito" : "text-yellow-600"}`}>
+          <dd className={`font-semibold ${data.status === "ok" ? "text-exito" : "text-durazno-hondo"}`}>
             {data.status}
           </dd>
         </div>
@@ -727,8 +743,8 @@ function UsersTab() {
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
                           user.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-exito-tenue text-exito"
+                            : "bg-alerta-tenue text-alerta"
                         }`}
                       >
                         {user.is_active ? "Activo" : "Inactivo"}

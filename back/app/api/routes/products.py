@@ -198,7 +198,8 @@ def get_product(sku_or_id: str, db: Session = Depends(get_db)):
             .first()
         )
 
-    if not product:
+    # Un producto desactivado deja de ser visible por su URL directa.
+    if not product or not product.is_active:
         raise HTTPException(404, "Producto no encontrado")
 
     rating = _ratings_for(db, [product.id]).get(product.id, (None, 0))

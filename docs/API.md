@@ -276,8 +276,7 @@ Parámetro: `include_inactive` (boolean, defecto `false`). Devuelve una lista de
 ### `GET /products/{sku_or_id}`
 
 Acepta el UUID o el SKU. Respuesta: un `ProductOut`. `404` si no existe.
-Nota: no filtra por `is_active`, de modo que un producto desactivado sigue respondiendo por su
-URL directa.
+Un producto desactivado responde `404`.
 
 ### `POST /products/admin`
 
@@ -387,7 +386,13 @@ Respuesta `201`:
   "payment_url": null,
   "payment_token": null,
   "external_id": null,
-  "payment_instructions": { "…": "datos bancarios para transferir" }
+  "payment_instructions": {
+    "provider": "manual",
+    "bank": "Banco …", "account_type": "Cuenta corriente", "account_number": "…",
+    "holder": "…", "rut": "…", "email": "ventas@alpacachino.com",
+    "deadline_hours": 24,
+    "note": "Transfiere el total y envía el comprobante por correo indicando el número de pedido. …"
+  }
 }
 ```
 
@@ -564,7 +569,7 @@ publicación oculta responde `404`.
 ### `PATCH /forum/posts/{post_id}`
 
 Cuerpo parcial: `title` (3–160) y/o `body` (mín. 10). Solo el autor o el staff; `403` en otro
-caso. No cambia `rating` ni `product_id`. Nota: la respuesta devuelve `comments_count: 0`;
+caso. No cambia `rating` ni `product_id`.
 vuelve a consultar el detalle si necesitas el valor real.
 
 ### `DELETE /forum/posts/{post_id}`
@@ -665,9 +670,9 @@ Parámetros de **consulta**: `delta` (int, requerido; positivo repone, negativo 
 PATCH /api/admin/inventory/0b9f…?delta=20&reason=restock&reference=factura-123
 ```
 
-`reason` debe ser uno de los motivos de movimiento que reconoce el modelo
-`InventoryMovement` (por ejemplo `restock`; los demás se usan internamente: `reservation`,
-`reservation_released`, `sale_confirmed`). Registra un movimiento de auditoría con el id del
+`reason` debe ser uno de los valores del enum `MovementReason`: `sale`, `reservation`, `restock`,
+`adjustment`, `import`, `reservation_released`, `sale_confirmed`. Para ajustes manuales lo habitual
+es `restock` (reposición) o `adjustment` (corrección); otro valor da `422`/error de base. Registra un movimiento de auditoría con el id del
 admin. Respuesta:
 
 ```json
@@ -725,7 +730,7 @@ Datos de negocio que el frontend no debe tener escritos a mano:
   "payment_provider": "manual",
   "terms_version": "2026-10",
   "seller": { "name": "AlpacachinoStore", "email": "ventas@alpacachino.com", "phone": "" },
-  "payment_instructions": { "…": "solo con payment_provider=manual" }
+  "payment_instructions": { "provider": "manual", "bank": "…", "deadline_hours": 24, "…": "solo con payment_provider=manual" }
 }
 ```
 

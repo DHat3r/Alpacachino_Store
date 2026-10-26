@@ -687,3 +687,11 @@ def test_subida_portada_formato_invalido_400(
         headers=admin_headers,
     )
     assert res.status_code == 400
+
+
+def test_producto_desactivado_responde_404_por_sku(client: TestClient, product_factory):
+    product_factory(sku="ACTIVO-1", is_active=True)
+    product_factory(sku="INACTIVO-1", is_active=False)
+
+    assert client.get("/api/products/ACTIVO-1").status_code == 200
+    assert client.get("/api/products/INACTIVO-1").status_code == 404
