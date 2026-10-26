@@ -679,6 +679,7 @@ def test_subida_portada_formato_invalido_400(
     client: TestClient, admin_headers, product_factory, monkeypatch
 ):
     product = product_factory()
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://fake.supabase.co")
     monkeypatch.setattr(settings, "SUPABASE_SECRET_KEY", "fake")
 
     res = client.post(

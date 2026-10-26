@@ -356,8 +356,14 @@ async def upload_cover(
         raise HTTPException(502, f"No se pudo subir la imagen: {exc}")
 
     if response.status_code not in (200, 201):
+        logger.warning(
+            "Supabase Storage rechazó la portada (%s): %s",
+            response.status_code,
+            response.text[:300],
+        )
         raise HTTPException(
-            502, f"Supabase Storage respondió {response.status_code}"
+            502,
+            f"Supabase Storage respondió {response.status_code}: {response.text[:200]}",
         )
 
     product.cover_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}"
