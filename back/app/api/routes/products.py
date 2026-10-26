@@ -1,6 +1,7 @@
 """API routes for product catalog (public and admin)."""
 
 import io
+import logging
 import uuid
 
 import httpx
@@ -24,9 +25,24 @@ from app.schemas.product import (
     ProductUpdate,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/products", tags=["catalog"])
 
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def _supabase_auth_headers() -> dict[str, str]:
+    """Cabeceras de autenticación para la API de Supabase Storage.
+
+    Las claves nuevas (``sb_secret_…``) no son JWT: Storage las rechaza como
+    ``Authorization: Bearer`` («Invalid Compact JWS») y deben ir en ``apikey``.
+    Las claves antiguas (JWT ``service_role``) siguen usando Bearer.
+    """
+    key = settings.SUPABASE_SECRET_KEY
+    if key.startswith("sb_"):
+        return {"apikey": key}
+    return {"apikey": key, "Authorization": f"Bearer {key}"}
 
 
 def _product_out(
@@ -315,8 +331,11 @@ async def upload_cover(
         out = io.BytesIO()
         img.save(out, format="WEBP", quality=85)
         webp = out.getvalue()
-    except Exception:
-        raise HTTPException(400, "No se pudo procesar la imagen")
+    except Exception as exc:
+        logger.exception("No se pudo procesar la portada de %s", product.sku)
+        raise HTTPException(
+            400, f"No se pudo procesar la imagen ({type(exc).__name__}: {exc})"
+        )
 
     bucket = settings.SUPABASE_STORAGE_BUCKET
     path = f"{product.sku}-{uuid.uuid4().hex[:8]}.webp"
@@ -327,7 +346,7 @@ async def upload_cover(
             url,
             content=webp,
             headers={
-                "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
+                **_supabase_auth_headers(),
                 "Content-Type": "image/webp",
                 "x-upsert": "true",
             },
