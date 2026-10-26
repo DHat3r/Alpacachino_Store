@@ -56,7 +56,7 @@ export default function Register() {
   return (
     <div className="contenedor max-w-md py-16">
       <div className="text-center">
-        <Alpaca className="mx-auto h-14 w-14 text-morado" />
+        <Alpaca className="mx-auto h-14 w-14 text-morado-texto" />
         <h1 className="mt-4 font-display text-3xl font-extrabold">Crear cuenta</h1>
         <p className="mt-2 text-tinta-suave">
           Con una cuenta compras, sigues tus pedidos y publicas en el foro.

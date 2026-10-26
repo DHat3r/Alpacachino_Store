@@ -94,7 +94,7 @@ const STATUS_COLORS: Record<string, string> = {
   failed: "bg-alerta-tenue text-alerta",
   expired: "bg-nube-hondo text-tinta-suave",
   cancelled: "bg-nube-hondo text-tinta-suave",
-  shipped: "bg-morado-tenue text-morado",
+  shipped: "bg-morado-tenue text-morado-texto",
   delivered: "bg-exito-tenue text-exito",
 };
 
@@ -139,7 +139,7 @@ export default function Admin() {
               onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
                 tab === t.id
-                  ? "border-morado text-morado"
+                  ? "border-morado text-morado-texto"
                   : "border-transparent text-tinta-suave hover:text-tinta"
               }`}
             >
@@ -172,7 +172,7 @@ function DashboardTab() {
   if (error || !data) return <p className="text-alerta">Error cargando los indicadores</p>;
 
   const cards = [
-    { label: "Productos activos", value: data.total_products, accent: "text-morado" },
+    { label: "Productos activos", value: data.total_products, accent: "text-morado-texto" },
     { label: "Pedidos totales", value: data.total_orders, accent: "text-tinta" },
     { label: "Pedidos pendientes", value: data.pending_orders, accent: "text-yellow-600" },
     { label: "Pedidos pagados", value: data.paid_orders, accent: "text-exito" },
@@ -522,7 +522,7 @@ function OrdersTab() {
                   <td className="px-4 py-3">
                     <Link
                       to={`/pedido/${order.id}`}
-                      className="font-medium text-morado hover:text-morado-hondo"
+                      className="font-medium text-morado-texto hover:text-morado-hondo"
                     >
                       #{order.id}
                     </Link>
@@ -697,7 +697,7 @@ function UsersTab() {
                   <tr key={user.id}>
                     <td className="px-4 py-3 font-medium text-tinta">
                       {user.username}
-                      {isSelf && <span className="ml-2 text-xs text-morado">(tú)</span>}
+                      {isSelf && <span className="ml-2 text-xs text-morado-texto">(tú)</span>}
                     </td>
                     <td className="px-4 py-3 text-tinta-suave">{user.email}</td>
                     <td className="px-4 py-3 text-tinta-suave">

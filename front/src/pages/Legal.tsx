@@ -16,7 +16,7 @@ export default function Legal() {
         <Link
           to="/terminos"
           className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-            enPrivacidad ? "bg-white text-tinta-suave" : "bg-morado text-white"
+            enPrivacidad ? "bg-superficie text-tinta-suave" : "bg-morado text-white"
           }`}
         >
           Términos de compra
@@ -24,7 +24,7 @@ export default function Legal() {
         <Link
           to="/privacidad"
           className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-            enPrivacidad ? "bg-morado text-white" : "bg-white text-tinta-suave"
+            enPrivacidad ? "bg-morado text-white" : "bg-superficie text-tinta-suave"
           }`}
         >
           Privacidad

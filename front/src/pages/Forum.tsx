@@ -177,7 +177,7 @@ export default function Forum() {
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
                 tipo === valor
                   ? "bg-morado text-white"
-                  : "bg-white text-tinta-suave hover:bg-morado-tenue"
+                  : "bg-superficie text-tinta-suave hover:bg-morado-tenue"
               }`}
             >
               {etiqueta}
@@ -222,7 +222,7 @@ export default function Forum() {
                   to={`/foro/${post.id}`}
                   className="panel flex gap-4 p-5 transition-colors hover:border-morado/40"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-morado-tenue font-bold text-morado">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-morado-tenue font-bold text-morado-texto">
                     {post.author_username[0]?.toUpperCase() ?? "?"}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -249,7 +249,7 @@ export default function Forum() {
                     </div>
 
                     {post.product && (
-                      <p className="mt-1 text-sm text-morado">{post.product.title}</p>
+                      <p className="mt-1 text-sm text-morado-texto">{post.product.title}</p>
                     )}
 
                     <p className="mt-1.5 line-clamp-2 text-tinta-suave">{post.body}</p>

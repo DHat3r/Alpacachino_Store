@@ -51,8 +51,8 @@ export default function FichaProducto({ producto }: { producto: ProductoFicha })
         )}
 
         {agotado && (
-          <div className="absolute inset-0 flex items-start justify-start bg-tinta/45 p-3">
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold">
+          <div className="absolute inset-0 flex items-start justify-start bg-nocturno/45 p-3">
+            <span className="rounded-full bg-superficie px-2.5 py-1 text-xs font-bold">
               Sin stock
             </span>
           </div>
@@ -72,7 +72,7 @@ export default function FichaProducto({ producto }: { producto: ProductoFicha })
         {producto.category?.name && (
           <p className="text-xs font-medium text-tinta-suave">{producto.category.name}</p>
         )}
-        <h3 className="mt-0.5 line-clamp-2 font-semibold leading-snug transition-colors group-hover:text-morado">
+        <h3 className="mt-0.5 line-clamp-2 font-semibold leading-snug transition-colors group-hover:text-morado-texto">
           {producto.title}
         </h3>
         {producto.author && (

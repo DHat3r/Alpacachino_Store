@@ -161,7 +161,7 @@ export default function PostDetail() {
   return (
     <div className="contenedor max-w-3xl py-10">
       <nav className="mb-6 text-sm text-tinta-suave">
-        <Link to="/foro" className="hover:text-morado">
+        <Link to="/foro" className="hover:text-morado-texto">
           Foro
         </Link>
         <span className="px-2 text-humo">/</span>
@@ -264,7 +264,7 @@ export default function PostDetail() {
             {post.product && (
               <Link
                 to={`/producto/${post.product.sku}`}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-morado-tenue px-3.5 py-1.5 text-sm font-semibold text-morado"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-morado-tenue px-3.5 py-1.5 text-sm font-semibold text-morado-texto"
               >
                 {post.product.title}
               </Link>
@@ -371,7 +371,7 @@ export default function PostDetail() {
           {comentarios.map((c) => (
             <li key={c.id} className="panel p-5">
               <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-morado-tenue text-sm font-bold text-morado">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-morado-tenue text-sm font-bold text-morado-texto">
                   {c.author_username[0]?.toUpperCase() ?? "?"}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -388,7 +388,7 @@ export default function PostDetail() {
                             setEditandoId(c.id);
                             setTextoEdicion(c.body);
                           }}
-                          className="text-morado hover:underline"
+                          className="text-morado-texto hover:underline"
                         >
                           Editar
                         </button>

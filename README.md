@@ -1,0 +1,240 @@
+# AlpacachinoStore
+
+Tienda chilena de manga y cómics con un foro donde la comunidad comenta cada tomo.
+El pago activo es **transferencia bancaria manual**: el cliente reserva su pedido, transfiere,
+y el administrador confirma el pago a mano. (Bots de WhatsApp/Instagram y pasarelas en línea
+están fuera del alcance actual; el código de Mercado Pago y Webpay existe pero no es el flujo activo.)
+
+| Capa | Tecnología |
+|---|---|
+| Backend | FastAPI, SQLAlchemy, Alembic, Celery + Redis |
+| Base de datos | PostgreSQL (local en Docker; Supabase en la nube) |
+| Frontend | React 18, TypeScript, Vite, Tailwind v4, TanStack Query, Zustand |
+| Correo en desarrollo | Mailhog |
+
+> La referencia detallada de cada endpoint está en [`docs/API.md`](docs/API.md).
+> El sistema visual del frontend está en [`front/DISENO.md`](front/DISENO.md).
+
+---
+
+## 1. Cómo funciona, de punta a punta
+
+### 1.1 El camino de una compra
+
+```
+ Cliente                       API                              Administrador
+ ───────                       ───                              ─────────────
+ navega catálogo ───────────▶  GET /products
+ se registra / entra ───────▶  POST /auth/register · /auth/login
+ arma el carrito (en el navegador, Zustand)
+ confirma el pedido ────────▶  POST /orders/checkout
+                               · valida productos activos
+                               · RESERVA stock (atómico, sin sobreventa)
+                               · calcula precios y envío en el servidor
+                               · crea el pedido PENDING con vencimiento
+                               ◀── order_id + datos de transferencia
+ transfiere desde su banco
+ ve el pedido y la cuenta
+ regresiva ─────────────────▶  GET /orders/{id}
+                                                              ve el pedido PENDING
+                               PATCH /orders/admin/{id}/status ◀── marca PAID
+                               · la reserva pasa a venta firme
+                               · se registra el pago manual
+                                                              prepara y despacha
+                               PATCH …/status ◀──────────────  SHIPPED → DELIVERED
+ reseña el tomo comprado ───▶  POST /forum/posts (con rating)
+```
+
+Tres reglas sostienen todo el flujo:
+
+1. **El servidor manda en los precios.** El carrito solo envía `product_id` y cantidad; el
+   subtotal, el envío y el total se calculan en el backend con el precio vigente.
+2. **El stock se reserva, no se descuenta a ciegas.** Al hacer checkout se ejecuta un
+   `UPDATE … WHERE quantity >= :qty` atómico. Si dos personas compran el último tomo a la vez,
+   una de las dos recibe `409`. Cada cambio de stock deja un registro en `inventory_movements`.
+3. **Las reservas vencen.** Un pedido `PENDING` guarda stock hasta `expires_at`. Si no se paga,
+   una tarea de Celery lo pasa a `EXPIRED` y devuelve el stock.
+
+### 1.2 Estados de un pedido
+
+```
+            ┌──────────▶ PAID ──────▶ SHIPPED ──────▶ DELIVERED
+            │             │
+ PENDING ───┤             └────────▶ CANCELLED   (repone el stock vendido)
+            ├──────────▶ CANCELLED  (el cliente o el admin; libera la reserva)
+            ├──────────▶ EXPIRED    (automático; libera la reserva)
+            └──────────▶ FAILED     (libera la reserva)
+```
+
+`FAILED`, `EXPIRED`, `CANCELLED` y `DELIVERED` son finales. Cualquier otra transición devuelve
+`409`. Qué le pasa al stock en cada salto:
+
+| Transición | Efecto en inventario |
+|---|---|
+| (checkout) → `PENDING` | `quantity − n`, `reserved + n` |
+| `PENDING` → `PAID` | `reserved − n` (la unidad ya estaba descontada) |
+| `PENDING` → `CANCELLED` / `EXPIRED` / `FAILED` | `quantity + n`, `reserved − n` |
+| `PAID` → `CANCELLED` | `quantity + n` (reposición con auditoría) |
+
+### 1.3 Plazo de la reserva
+
+El plazo depende del medio de pago y lo informa `GET /api/config` (`reservation_minutes`),
+así el frontend nunca lo escribe a mano:
+
+- `PAYMENT_PROVIDER=manual` → `MANUAL_PAYMENT_HOURS` (24 h por defecto).
+- Con una pasarela en línea → `STOCK_RESERVATION_MINUTES` (15 min por defecto).
+
+### 1.4 Foro y reseñas
+
+El foro tiene dos tipos de publicación: **discusión** (sin `rating`) y **reseña** (con `rating`
+de 1 a 5 y un `product_id`). Para reseñar hay que haber comprado el producto: el backend exige
+un pedido `PAID` que lo contenga, y solo se permite una reseña por usuario y producto.
+Los borrados son lógicos (`is_hidden`), así el equipo de moderación puede revisarlos.
+Cualquier usuario puede reportar una publicación o comentario; moderadores y administradores
+resuelven los reportes, y pueden ocultar, fijar o cerrar hilos.
+
+### 1.5 Roles
+
+| Rol | Puede |
+|---|---|
+| `customer` | Comprar, ver sus pedidos, publicar y comentar, reportar |
+| `moderator` | Todo lo anterior + moderar el foro (ocultar, fijar, cerrar, resolver reportes) |
+| `admin` | Todo + catálogo, inventario, pedidos de todos, usuarios y panel de métricas |
+
+### 1.6 Tareas en segundo plano
+
+Celery (worker + beat) corre tres tareas programadas, en zona horaria `America/Santiago`:
+
+| Tarea | Frecuencia | Qué hace |
+|---|---|---|
+| `expire_reservations` | cada 60 s | Pasa a `EXPIRED` los pedidos vencidos y libera su stock |
+| `daily_report` | 08:00 | Envía al admin un resumen de pedidos, ingresos y stock bajo |
+| `ping` | cada 5 min | Latido de prueba del worker |
+
+Además, el correo de confirmación del pedido se envía con `send_order_confirmation`
+(por SMTP; en desarrollo se ve en Mailhog).
+
+### 1.7 Privacidad
+
+`DELETE /api/auth/me` **anonimiza** la cuenta en vez de borrarla: se pierden los datos
+personales y el acceso, pero se conservan los pedidos (obligación tributaria) y el foro queda
+con «usuario eliminado». El registro guarda la fecha y la versión de los términos aceptados.
+
+---
+
+## 2. Estructura del repositorio
+
+```
+Alpacachino_Store/
+├── back/                    API (FastAPI)
+│   ├── app/
+│   │   ├── main.py          punto de entrada, CORS, cabeceras de seguridad
+│   │   ├── api/routes/      auth, products, orders, payments, admin, forum, config, health, webhooks
+│   │   ├── api/deps.py      usuario actual y control de roles
+│   │   ├── models/          tablas SQLAlchemy
+│   │   ├── schemas/         validación de entrada/salida (Pydantic)
+│   │   ├── services/        inventario, pagos, correo, keepalive
+│   │   ├── tasks.py         tareas Celery
+│   │   └── worker.py        configuración de Celery y calendario (beat)
+│   ├── alembic/             migraciones
+│   ├── scripts/             seed_demo.py, import_catalog.py, check_db.py
+│   └── tests/               pruebas (pytest)
+├── front/                   Tienda (React + Vite)
+│   └── DISENO.md            sistema visual, modo oscuro, sombrero de Alpachino
+├── docs/API.md              referencia de endpoints
+├── docker-compose.yml       db, redis, api, worker, beat, web, mailhog, adminer
+├── .env.example             variables de entorno documentadas
+├── PASOS_A_SEGUIR.md        hoja de ruta y estado
+└── DEPLOY.md                despliegue
+```
+
+---
+
+## 3. Puesta en marcha local
+
+Requisitos: Docker Desktop abierto.
+
+```bash
+cp .env.example .env          # y completa lo que necesites (ver sección 4)
+docker compose up -d
+docker compose exec -T api alembic upgrade head              # crea las tablas
+docker compose exec -T api python scripts/seed_demo.py       # datos de demostración
+```
+
+| Servicio | Dirección |
+|---|---|
+| Tienda (frontend) | http://localhost:5173 |
+| API | http://localhost:8001 (puerto configurable con `API_PORT`) |
+| Documentación interactiva | http://localhost:8001/docs (solo con `DEBUG=true`) |
+| Correos de prueba (Mailhog) | http://localhost:8025 |
+| Adminer (base de datos) | http://localhost:8081 |
+| PostgreSQL local | `localhost:5433` |
+
+`seed_demo.py` crea categorías, ~48 productos, 5 usuarios `@demo.cl`, hilos del foro y pedidos
+en todos los estados. Es idempotente; con `--reset` lo regenera. Los usuarios demo comparten la
+clave `Demo1234`. **Solo para desarrollo local, nunca contra producción.**
+
+Apagar y encender:
+
+```bash
+docker compose stop        # apaga, conserva contenedores y datos
+docker compose up -d       # vuelve a encender
+docker compose down        # elimina contenedores (los datos siguen en el volumen)
+```
+
+### Pruebas
+
+```bash
+docker compose exec -T api pytest
+```
+
+### Frontend sin Docker
+
+```bash
+cd front
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # tsc + vite build
+```
+
+---
+
+## 4. Configuración (`.env`)
+
+Las variables más importantes. La lista completa, comentada, está en `.env.example`.
+
+| Variable | Para qué |
+|---|---|
+| `SECRET_KEY` | Firma de los JWT (mínimo 32 caracteres) |
+| `ENV`, `DEBUG` | `production` activa HSTS; `DEBUG=false` oculta `/docs` |
+| `DATABASE_URL` | Conexión a Supabase; si está vacía se usan las `POSTGRES_*` del Docker local |
+| `BACKEND_CORS_ORIGINS`, `PUBLIC_SITE_URL` | Orígenes permitidos y URL pública del sitio |
+| `PAYMENT_PROVIDER` | `manual` para transferencia (flujo activo) |
+| `MANUAL_PAYMENT_HOURS` | Plazo de la reserva en transferencia (24) |
+| `BANK_NAME`, `BANK_ACCOUNT_TYPE`, `BANK_ACCOUNT_NUMBER`, `BANK_HOLDER`, `BANK_RUT`, `BANK_EMAIL` | Datos que ve el cliente para transferir |
+| `SHIPPING_COST`, `FREE_SHIPPING_FROM` | Envío fijo y umbral de envío gratis (CLP) |
+| `SELLER_NAME`, `SELLER_EMAIL`, `SELLER_PHONE` | Datos del vendedor mostrados en el sitio |
+| `SMTP_*`, `MAIL_FROM` | Correo saliente (Mailhog en local) |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_STORAGE_BUCKET` | Subida de portadas (bucket `product-covers`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS` | Vida de los tokens (30 min / 7 días) |
+
+> `.env` contiene secretos y no se versiona. Si una clave se filtra, rótala.
+
+---
+
+## 5. Seguridad en una mirada
+
+- Contraseñas con hash; JWT de acceso (30 min) y de refresco (7 días).
+- Límites de tasa por IP: registro 5/min, login 10/min, publicar 10/min, comentar 20/min.
+- Cabeceras `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
+- Row Level Security activada en las 15 tablas de Supabase; la API entra con credenciales de
+  servidor y la Data API no expone ninguna tabla.
+- Los webhooks de pago son idempotentes (se registra el evento antes de procesarlo).
+
+---
+
+## 6. Dónde seguir
+
+`PASOS_A_SEGUIR.md` lleva el estado de cada fase y lo pendiente. Entre lo próximo:
+pestañas del panel admin para productos, categorías y moderación; recuperación de contraseña
+(requiere un endpoint nuevo); portadas de los productos; y el despliegue (`DEPLOY.md`).

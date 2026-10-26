@@ -66,7 +66,7 @@ export default function MyOrders() {
 
                 <div className="ml-auto flex items-center gap-4">
                   <EstadoPedido estado={pedido.status} />
-                  <span className="text-sm font-medium text-morado">Ver detalle</span>
+                  <span className="text-sm font-medium text-morado-texto">Ver detalle</span>
                 </div>
               </Link>
             </li>

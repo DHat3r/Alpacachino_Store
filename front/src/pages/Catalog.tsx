@@ -222,7 +222,7 @@ function BotonFiltro({
       onClick={onClick}
       aria-pressed={activo}
       className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-        activo ? "bg-morado text-white" : "bg-white text-tinta-suave hover:bg-morado-tenue"
+        activo ? "bg-morado text-white" : "bg-superficie text-tinta-suave hover:bg-morado-tenue"
       }`}
     >
       {children}

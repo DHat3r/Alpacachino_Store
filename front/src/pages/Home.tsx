@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -38,7 +39,10 @@ export default function Home() {
     },
   });
 
-  const reserva = duracionReserva(config?.reservation_minutes ?? 1440);
+  // Cambiar la llave vuelve a montar la alpaca, y con eso el sombrero vuela de nuevo.
+  const [vuelo, setVuelo] = useState(0);
+
+  const reserva = config ? duracionReserva(config.reservation_minutes) : null;
   const portadas = (novedades ?? []).filter((p) => p.cover_url).slice(0, 3);
   const hayPortadas = portadas.length >= 3;
 
@@ -52,8 +56,9 @@ export default function Home() {
               Manga y cómics con comunidad incluida.
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-tinta-suave">
-              Stock real, reserva de {reserva} para pagar por transferencia y un foro
-              donde se comenta cada tomo.
+              {reserva
+                ? `Stock real, reserva de ${reserva} para pagar por transferencia y un foro donde se comenta cada tomo.`
+                : "Stock real, pago por transferencia y un foro donde se comenta cada tomo."}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/catalogo" className="btn btn-primario btn-grande">
@@ -82,16 +87,41 @@ export default function Home() {
               ))}
 
             <div className="relative flex min-h-64 flex-col items-center justify-center gap-4 overflow-hidden rounded-ficha bg-morado p-6 text-center">
-              <div className="relative rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-tinta">
+              <div className="relative rounded-2xl bg-superficie px-4 py-2.5 text-sm font-semibold text-tinta">
                 ¡Llegó tomo nuevo!
-                <span className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-white" />
+                <span className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-superficie" />
               </div>
-              <Alpaca className={hayPortadas ? "h-20 w-20 text-lila" : "h-36 w-36 text-lila"} />
+              <Alpaca
+                key={vuelo}
+                sombrero
+                animarSombrero
+                className={hayPortadas ? "h-20 w-20 text-lila" : "h-36 w-36 text-lila"}
+              />
               {!hayPortadas && (
                 <p className="max-w-xs text-sm leading-relaxed text-white/75">
                   Alpachino revisa cada tomo antes de despacharlo.
                 </p>
               )}
+
+              <button
+                onClick={() => setVuelo((n) => n + 1)}
+                className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                aria-label="Volver a reproducir la animación del sombrero"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v4h4" />
+                </svg>
+                Repetir
+              </button>
             </div>
           </div>
         </div>
@@ -130,7 +160,7 @@ export default function Home() {
             }
           />
           <Dato
-            titulo={`Reserva de ${reserva}`}
+            titulo={reserva ? `Reserva de ${reserva}` : "Reserva de stock"}
             texto="Al confirmar el pedido guardamos el stock mientras haces la transferencia."
             icono={<path d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />}
           />
@@ -145,7 +175,7 @@ export default function Home() {
       </section>
 
       {/* Foro */}
-      <section className="bg-tinta py-14 text-nube">
+      <section className="bg-nocturno py-14 text-nocturno-texto">
         <div className="contenedor">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <h2 className="titulo-seccion text-white">Lo último del foro</h2>
@@ -171,8 +201,8 @@ export default function Home() {
                   <h3 className="font-display text-lg font-extrabold leading-snug text-white">
                     {post.title}
                   </h3>
-                  <p className="mt-2 line-clamp-3 text-sm text-nube/70">{post.body}</p>
-                  <p className="mt-4 text-xs text-nube/50">
+                  <p className="mt-2 line-clamp-3 text-sm text-nocturno-texto/70">{post.body}</p>
+                  <p className="mt-4 text-xs text-nocturno-texto/50">
                     {post.author_username}
                     <span className="mx-2 text-white/20">|</span>
                     {fecha(post.created_at)}
@@ -183,7 +213,7 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <p className="text-nube/70">
+            <p className="text-nocturno-texto/70">
               Todavía no hay publicaciones.{" "}
               <Link to="/foro" className="font-semibold text-lila hover:text-white">
                 Abre la primera conversación
@@ -210,7 +240,7 @@ function Dato({
     <div>
       <svg
         viewBox="0 0 24 24"
-        className="h-7 w-7 text-morado"
+        className="h-7 w-7 text-morado-texto"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.6"

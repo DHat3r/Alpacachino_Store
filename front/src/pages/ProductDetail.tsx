@@ -108,7 +108,7 @@ export default function ProductDetail() {
   return (
     <div className="contenedor py-8">
       <nav className="mb-6 text-sm text-tinta-suave">
-        <Link to="/catalogo" className="hover:text-morado">
+        <Link to="/catalogo" className="hover:text-morado-texto">
           Catálogo
         </Link>
         <span className="px-2 text-humo">/</span>
@@ -149,7 +149,7 @@ export default function ProductDetail() {
             </a>
           )}
 
-          <p className="mt-5 font-display text-4xl font-extrabold text-morado">
+          <p className="mt-5 font-display text-4xl font-extrabold text-morado-texto">
             {clp(producto.price)}
           </p>
 
@@ -166,10 +166,10 @@ export default function ProductDetail() {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <div className="flex items-center rounded-full border border-humo bg-white">
+            <div className="flex items-center rounded-full border border-humo bg-superficie">
               <button
                 onClick={() => setCantidad((c) => Math.max(1, c - 1))}
-                className="px-4 py-2.5 text-lg leading-none hover:text-morado"
+                className="px-4 py-2.5 text-lg leading-none hover:text-morado-texto"
                 aria-label="Quitar una unidad"
               >
                 −
@@ -177,7 +177,7 @@ export default function ProductDetail() {
               <span className="w-8 text-center font-semibold">{cantidad}</span>
               <button
                 onClick={() => setCantidad((c) => Math.min(Math.max(1, stock), c + 1))}
-                className="px-4 py-2.5 text-lg leading-none hover:text-morado"
+                className="px-4 py-2.5 text-lg leading-none hover:text-morado-texto"
                 aria-label="Agregar una unidad"
               >
                 +
@@ -253,7 +253,7 @@ export default function ProductDetail() {
             resenas.map((r) => (
               <article key={r.id} className="panel p-5">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-morado-tenue font-bold text-morado">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-morado-tenue font-bold text-morado-texto">
                     {r.author_username[0]?.toUpperCase() ?? "?"}
                   </span>
                   <div>
@@ -273,7 +273,7 @@ export default function ProductDetail() {
                   </p>
                 )}
                 <h3 className="mt-2 font-display text-lg font-extrabold">
-                  <Link to={`/foro/${r.id}`} className="hover:text-morado">
+                  <Link to={`/foro/${r.id}`} className="hover:text-morado-texto">
                     {r.title}
                   </Link>
                 </h3>

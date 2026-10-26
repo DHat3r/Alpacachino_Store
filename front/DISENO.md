@@ -35,6 +35,37 @@ Los tonos "tenue" son para fondos; los "hondo" para el texto encima de ellos (co
 
 Se cargan desde Google Fonts en `index.html`.
 
+## Modo oscuro
+
+No hay ni una clase `dark:` en las páginas. Las utilidades de Tailwind apuntan a variables CSS,
+así que el tema oscuro sólo redefine esas variables en `src/index.css`:
+
+- `:root[data-tema="oscuro"]` cuando la persona lo elige a mano.
+- `@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) }` cuando no eligió nada
+  y el sistema está en oscuro.
+
+La elección se guarda en `localStorage` (`alpacachino-tema`) y un script corto en `index.html` la
+aplica antes de pintar, así no parpadea en claro al cargar. El botón del sol/luna está en la barra
+superior y usa el hook `useTema()` de `src/lib/tema.ts`.
+
+Dos tokens existen justamente para que el tema no rompa nada:
+
+- `superficie`: el fondo de paneles y campos (blanco en claro, casi negro en oscuro). **Usa
+  `bg-superficie`, no `bg-white`.**
+- `nocturno` / `nocturno-texto`: bloques que son oscuros en los dos temas (pie de página y la
+  franja del foro en la portada).
+- `morado-texto`: el morado para *texto* (en oscuro aclara a `#c4a6f7` para que se lea). `morado`
+  sigue siendo el fondo de botones y de la obi.
+
+## El sombrero de Alpachino
+
+`<Alpaca sombrero />` le pone el fedora; `<Alpaca sombrero animarSombrero />` hace que entre por
+arriba, dé una vuelta completa en el aire y caiga en su cabeza (`@keyframes sombrero-vuela`,
+1,5 s). Se anima al entrar a la portada y al caer en un 404; en la barra y en el pie va quieto.
+En la portada hay un botón chico «Repetir» abajo a la derecha del panel morado: cambia la llave
+(`key={vuelo}`) de la alpaca, con eso React la vuelve a montar y el sombrero sale volando otra vez.
+Con `prefers-reduced-motion` el sombrero aparece puesto, sin vuelo.
+
 ## Clases compartidas
 
 Definidas en `@layer components` de `src/index.css`:

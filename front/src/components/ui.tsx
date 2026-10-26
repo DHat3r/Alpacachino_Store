@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 const ESTADOS: Record<string, { texto: string; clase: string }> = {
   pending: { texto: "Esperando pago", clase: "bg-durazno-tenue text-durazno-hondo" },
   paid: { texto: "Pagado", clase: "bg-exito-tenue text-exito" },
-  shipped: { texto: "Enviado", clase: "bg-morado-tenue text-morado" },
+  shipped: { texto: "Enviado", clase: "bg-morado-tenue text-morado-texto" },
   delivered: { texto: "Entregado", clase: "bg-exito-tenue text-exito" },
   cancelled: { texto: "Cancelado", clase: "bg-nube-hondo text-tinta-suave" },
   expired: { texto: "Reserva vencida", clase: "bg-nube-hondo text-tinta-suave" },

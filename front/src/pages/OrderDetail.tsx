@@ -91,7 +91,7 @@ export default function OrderDetail() {
   return (
     <div className="contenedor py-10">
       <nav className="mb-6 text-sm text-tinta-suave">
-        <Link to="/mis-pedidos" className="hover:text-morado">
+        <Link to="/mis-pedidos" className="hover:text-morado-texto">
           Mis pedidos
         </Link>
         <span className="px-2 text-humo">/</span>
@@ -167,7 +167,7 @@ export default function OrderDetail() {
                   <div className="flex-1">
                     <p className="font-semibold">
                       {item.sku ? (
-                        <Link to={`/producto/${item.sku}`} className="hover:text-morado">
+                        <Link to={`/producto/${item.sku}`} className="hover:text-morado-texto">
                           {item.title ?? "Título"}
                         </Link>
                       ) : (

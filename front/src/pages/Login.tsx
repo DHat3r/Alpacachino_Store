@@ -45,7 +45,7 @@ export default function Login() {
   return (
     <div className="contenedor max-w-md py-16">
       <div className="text-center">
-        <Alpaca className="mx-auto h-14 w-14 text-morado" />
+        <Alpaca className="mx-auto h-14 w-14 text-morado-texto" />
         <h1 className="mt-4 font-display text-3xl font-extrabold">Entrar</h1>
         <p className="mt-2 text-tinta-suave">
           Para comprar, seguir tus pedidos y participar en el foro.

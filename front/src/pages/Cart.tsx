@@ -178,7 +178,7 @@ export default function Cart() {
                 <div className="flex-1">
                   <Link
                     to={`/producto/${item.sku}`}
-                    className="font-semibold hover:text-morado"
+                    className="font-semibold hover:text-morado-texto"
                   >
                     {item.title}
                   </Link>
@@ -190,7 +190,7 @@ export default function Cart() {
                     <div className="flex items-center rounded-full border border-humo">
                       <button
                         onClick={() => setQty(item.productId, item.quantity - 1)}
-                        className="px-3 py-1.5 leading-none hover:text-morado"
+                        className="px-3 py-1.5 leading-none hover:text-morado-texto"
                         aria-label={`Quitar una unidad de ${item.title}`}
                       >
                         −
@@ -200,7 +200,7 @@ export default function Cart() {
                       </span>
                       <button
                         onClick={() => setQty(item.productId, item.quantity + 1)}
-                        className="px-3 py-1.5 leading-none hover:text-morado"
+                        className="px-3 py-1.5 leading-none hover:text-morado-texto"
                         aria-label={`Agregar una unidad de ${item.title}`}
                       >
                         +

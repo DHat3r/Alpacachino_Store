@@ -2,14 +2,29 @@
  * Marca de la tienda: la cabeza de Alpachino.
  * Dibujo propio en SVG para que escale bien y herede el color (`currentColor`).
  * Si llega el logo definitivo del cliente, basta con reemplazar este componente.
+ *
+ * `sombrero` le pone el fedora de la familia; con `animarSombrero` el sombrero
+ * entra por arriba, da una vuelta completa en el aire y cae en su cabeza.
  */
-export default function Alpaca({ className = "" }: { className?: string }) {
+export default function Alpaca({
+  className = "",
+  sombrero = false,
+  animarSombrero = false,
+}: {
+  className?: string;
+  sombrero?: boolean;
+  animarSombrero?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 48 48"
-      className={className}
+      className={`overflow-visible ${className}`}
       role="img"
-      aria-label="Alpachino, la alpaca de la tienda"
+      aria-label={
+        sombrero
+          ? "Alpachino, la alpaca de la tienda, con su sombrero"
+          : "Alpachino, la alpaca de la tienda"
+      }
       fill="none"
     >
       {/* cuello */}
@@ -58,6 +73,36 @@ export default function Alpaca({ className = "" }: { className?: string }) {
       {/* ojos */}
       <circle cx="19.4" cy="22.6" r="1.6" fill="#1b1420" />
       <circle cx="28.6" cy="22.6" r="1.6" fill="#1b1420" />
+
+      {/* sombrero */}
+      {sombrero && (
+        <g
+          className={`alpaca-sombrero${animarSombrero ? " alpaca-sombrero--cae" : ""}`}
+        >
+          <g transform="rotate(-7 24 12)">
+            {/* copa */}
+            <path
+              d="M17.7 15.1c-.7-4.8 0-8 1.9-9.4 1.3-1 2.8-1.5 4.4-1.5s3.1.5 4.4 1.5c1.9 1.4 2.6 4.6 1.9 9.4z"
+              fill="#2b2333"
+            />
+            {/* hundido de la copa */}
+            <path
+              d="M21.7 6.1c.7 1 1.5 1.5 2.3 1.5s1.6-.5 2.3-1.5"
+              stroke="#17121d"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+            />
+            {/* cinta */}
+            <path
+              d="M17.9 11.3c4.1 1.1 8.1 1.1 12.2 0l-.2 2.5c-3.9 1-7.9 1-11.8 0z"
+              fill="#0f0b14"
+            />
+            {/* ala */}
+            <ellipse cx="24" cy="15.6" rx="14.4" ry="3" fill="#2b2333" />
+            <ellipse cx="24" cy="14.9" rx="14.4" ry="2.4" fill="#3b3247" />
+          </g>
+        </g>
+      )}
     </svg>
   );
 }

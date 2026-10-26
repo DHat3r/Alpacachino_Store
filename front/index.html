@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#5b2ba6" />
+    <script>
+      // Aplica el tema elegido antes de pintar, para que no parpadee en claro.
+      try {
+        var t = localStorage.getItem("alpacachino-tema");
+        if (t === "claro" || t === "oscuro") document.documentElement.dataset.tema = t;
+      } catch (e) {}
+    </script>
     <meta
       name="description"
       content="AlpacachinoStore — manga, cómics y comunidad lectora. Envíos a todo Chile."

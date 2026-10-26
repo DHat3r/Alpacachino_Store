@@ -7,6 +7,10 @@
  * Idea del diseño: la página es "nube" (gris frío), el contenido vive en
  * paneles de "papel" con medianiles visibles —como las viñetas de un manga—
  * y el morado es estructura (bandas, estados, acciones), no decoración.
+ *
+ * Modo oscuro: no se repite ninguna clase `dark:`. Las utilidades apuntan a
+ * variables CSS, así que basta con redefinir esas variables cuando el sistema
+ * pide oscuro o cuando el usuario elige el tema (atributo data-tema en <html>).
  */
 @import "tailwindcss";
 
@@ -17,14 +21,20 @@
   --color-papel: #f7f0e6;
   --color-papel-hondo: #efe3d2;
   --color-humo: #d3d1de;
+  --color-superficie: #ffffff;
 
   /* Tinta (texto) */
   --color-tinta: #1b1420;
   --color-tinta-suave: #5a4f63;
 
+  /* Bloques nocturnos (pie de página, franja del foro): oscuros en los dos temas */
+  --color-nocturno: #1b1420;
+  --color-nocturno-texto: #e9ebf2;
+
   /* Morado de marca */
   --color-morado: #5b2ba6;
   --color-morado-hondo: #46207f;
+  --color-morado-texto: #5b2ba6;
   --color-morado-tenue: #ece2fb;
   --color-lila: #b79cf0;
 
@@ -47,6 +57,75 @@
 
   --shadow-panel: 0 1px 0 rgb(27 20 32 / 0.04);
   --shadow-levanta: 0 18px 34px -22px rgb(45 25 80 / 0.55);
+}
+
+/* Paleta nocturna: misma estructura, otra luz. */
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --color-nube: #15111a;
+  --color-nube-hondo: #231c2b;
+  --color-papel: #201925;
+  --color-papel-hondo: #2a2131;
+  --color-humo: #3b3246;
+  --color-superficie: #1b1522;
+
+  --color-tinta: #f3eff8;
+  --color-tinta-suave: #b4a8c2;
+
+  --color-nocturno: #0f0b14;
+
+  --color-morado: #6d3bbd;
+  --color-morado-hondo: #7e4ee0;
+  --color-morado-texto: #c4a6f7;
+  --color-morado-tenue: #2d2340;
+  --color-lila: #c9b3f7;
+
+  --color-durazno: #f0b429;
+  --color-durazno-hondo: #ffd37a;
+  --color-durazno-tenue: #352813;
+  --color-alerta: #ff8f85;
+  --color-alerta-tenue: #3b1d1b;
+  --color-exito: #6ed3a4;
+  --color-exito-tenue: #16332a;
+
+  --shadow-panel: 0 1px 0 rgb(0 0 0 / 0.3);
+  --shadow-levanta: 0 18px 34px -22px rgb(0 0 0 / 0.75);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+
+    --color-nube: #15111a;
+    --color-nube-hondo: #231c2b;
+    --color-papel: #201925;
+    --color-papel-hondo: #2a2131;
+    --color-humo: #3b3246;
+    --color-superficie: #1b1522;
+
+    --color-tinta: #f3eff8;
+    --color-tinta-suave: #b4a8c2;
+
+    --color-nocturno: #0f0b14;
+
+    --color-morado: #6d3bbd;
+    --color-morado-hondo: #7e4ee0;
+    --color-morado-texto: #c4a6f7;
+    --color-morado-tenue: #2d2340;
+    --color-lila: #c9b3f7;
+
+    --color-durazno: #f0b429;
+    --color-durazno-hondo: #ffd37a;
+    --color-durazno-tenue: #352813;
+    --color-alerta: #ff8f85;
+    --color-alerta-tenue: #3b1d1b;
+    --color-exito: #6ed3a4;
+    --color-exito-tenue: #16332a;
+
+    --shadow-panel: 0 1px 0 rgb(0 0 0 / 0.3);
+    --shadow-levanta: 0 18px 34px -22px rgb(0 0 0 / 0.75);
+  }
 }
 
 @layer base {
@@ -83,6 +162,15 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+
+    /*
+     * Excepción para el sombrero: en vez de aparecer de golpe, baja suave y
+     * sin girar. Se nota que es un sombrero que cae, sin el movimiento amplio
+     * que molesta a quien pidió menos animación.
+     */
+    .alpaca-sombrero--cae {
+      animation: sombrero-aterriza 0.6s ease-out both !important;
+    }
   }
 }
 
@@ -93,7 +181,7 @@
 
   /* Viñeta: la superficie base de todo el contenido. */
   .panel {
-    @apply rounded-panel border border-humo bg-white shadow-panel;
+    @apply rounded-panel border border-humo bg-superficie shadow-panel;
   }
 
   .panel-papel {
@@ -109,11 +197,11 @@
   }
 
   .btn-secundario {
-    @apply border border-humo bg-white text-tinta hover:bg-papel;
+    @apply border border-humo bg-superficie text-tinta hover:bg-papel;
   }
 
   .btn-fantasma {
-    @apply text-morado hover:bg-morado-tenue;
+    @apply text-morado-texto hover:bg-morado-tenue;
   }
 
   .btn-peligro {
@@ -125,7 +213,7 @@
   }
 
   .campo {
-    @apply w-full rounded-xl border border-humo bg-white px-3.5 py-2.5 text-sm text-tinta transition-colors placeholder:text-tinta-suave/55 focus:border-morado focus:outline-none focus:ring-2 focus:ring-morado/25;
+    @apply w-full rounded-xl border border-humo bg-superficie px-3.5 py-2.5 text-sm text-tinta transition-colors placeholder:text-tinta-suave/55 focus:border-morado focus:outline-none focus:ring-2 focus:ring-morado/25;
   }
 
   .etiqueta-campo {
@@ -137,7 +225,7 @@
   }
 
   .enlace {
-    @apply font-medium text-morado underline-offset-4 hover:underline;
+    @apply font-medium text-morado-texto underline-offset-4 hover:underline;
   }
 
   .titulo-seccion {
@@ -159,6 +247,52 @@
   }
 
   .texto-largo a {
-    @apply text-morado underline underline-offset-4;
+    @apply text-morado-texto underline underline-offset-4;
   }
+}
+
+/*
+ * El sombrero de Alpachino: sale volando, da una vuelta completa en el aire
+ * y aterriza en su cabeza con un rebote corto.
+ */
+@keyframes sombrero-vuela {
+  0% {
+    transform: translate(0, -170%) rotate(-25deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  58% {
+    transform: translate(0, -55%) rotate(190deg);
+  }
+  82% {
+    transform: translate(0, 5%) rotate(360deg);
+  }
+  91% {
+    transform: translate(0, -3%) rotate(360deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(360deg);
+  }
+}
+
+@keyframes sombrero-aterriza {
+  from {
+    transform: translate(0, -16%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+}
+
+.alpaca-sombrero {
+  transform-box: fill-box;
+  transform-origin: 50% 65%;
+}
+
+.alpaca-sombrero--cae {
+  animation: sombrero-vuela 2.6s cubic-bezier(0.34, 0.08, 0.28, 1) both;
 }
