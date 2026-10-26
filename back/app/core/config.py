@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     # Latido contra la base para que Supabase no cierre la sesión ociosa.
     # 0 lo desactiva (lo usan las pruebas).
-    DB_KEEPALIVE_SECONDS: int = 5
+    DB_KEEPALIVE_SECONDS: int = 300
 
     # ── Supabase (API, no la base de datos) ──
     # La base se conecta con DATABASE_URL; estas claves son para la API

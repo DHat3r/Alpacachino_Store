@@ -252,7 +252,7 @@ function SystemStatus() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-medium text-tinta">Estado del sistema</h3>
         <span className="text-xs text-tinta-suave/60">
-          Latido cada {ka.interval_seconds} s · actualizado{" "}
+          Latido cada {ka.interval_seconds >= 60 ? `${Math.round(ka.interval_seconds / 60)} min` : `${ka.interval_seconds} s`} · actualizado{" "}
           {ka.last_check_at ? new Date(ka.last_check_at).toLocaleTimeString("es-CL") : "—"}
         </span>
       </div>
@@ -298,6 +298,10 @@ function InventoryTab() {
   const queryClient = useQueryClient();
   const [threshold, setThreshold] = useState(5);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [orden, setOrden] = useState<{ campo: CampoInventario; asc: boolean }>({
+    campo: "available",
+    asc: true,
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-low-stock", threshold],
@@ -326,6 +330,21 @@ function InventoryTab() {
     },
     onError: () => setFeedback("No se pudo ajustar el stock."),
   });
+
+  const filas = data
+    ? [...data].sort((a, b) => {
+        const va = a[orden.campo];
+        const vb = b[orden.campo];
+        const cmp =
+          typeof va === "number" && typeof vb === "number"
+            ? va - vb
+            : String(va).localeCompare(String(vb), "es", { numeric: true, sensitivity: "base" });
+        return orden.asc ? cmp : -cmp;
+      })
+    : [];
+
+  const ordenarPor = (campo: CampoInventario) =>
+    setOrden((o) => (o.campo === campo ? { campo, asc: !o.asc } : { campo, asc: true }));
 
   return (
     <div className="space-y-6">
@@ -361,16 +380,16 @@ function InventoryTab() {
           <table className="min-w-full text-sm">
             <thead className="bg-papel text-tinta-suave">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Producto</th>
-                <th className="text-left px-4 py-3 font-medium">SKU</th>
-                <th className="text-right px-4 py-3 font-medium">Total</th>
-                <th className="text-right px-4 py-3 font-medium">Reservado</th>
-                <th className="text-right px-4 py-3 font-medium">Disponible</th>
+                <EncabezadoOrden campo="title" texto="Producto" orden={orden} onOrdenar={ordenarPor} />
+                <EncabezadoOrden campo="sku" texto="SKU" orden={orden} onOrdenar={ordenarPor} />
+                <EncabezadoOrden campo="quantity" texto="Total" orden={orden} onOrdenar={ordenarPor} derecha />
+                <EncabezadoOrden campo="reserved" texto="Reservado" orden={orden} onOrdenar={ordenarPor} derecha />
+                <EncabezadoOrden campo="available" texto="Disponible" orden={orden} onOrdenar={ordenarPor} derecha />
                 <th className="text-left px-4 py-3 font-medium">Ajustar</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-humo">
-              {data.map((item) => (
+              {filas.map((item) => (
                 <InventoryRow
                   key={item.product_id}
                   item={item}
@@ -385,6 +404,45 @@ function InventoryTab() {
         </div>
       )}
     </div>
+  );
+}
+
+type CampoInventario = "title" | "sku" | "quantity" | "reserved" | "available";
+
+/** Encabezado de columna que ordena al hacer clic (vuelve a hacer clic para invertir). */
+function EncabezadoOrden({
+  campo,
+  texto,
+  orden,
+  onOrdenar,
+  derecha = false,
+}: {
+  campo: CampoInventario;
+  texto: string;
+  orden: { campo: CampoInventario; asc: boolean };
+  onOrdenar: (campo: CampoInventario) => void;
+  derecha?: boolean;
+}) {
+  const activo = orden.campo === campo;
+  return (
+    <th
+      className={`px-4 py-3 font-medium ${derecha ? "text-right" : "text-left"}`}
+      aria-sort={activo ? (orden.asc ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onOrdenar(campo)}
+        className={`inline-flex items-center gap-1 rounded transition-colors hover:text-tinta ${
+          activo ? "text-morado-texto" : ""
+        }`}
+        title={`Ordenar por ${texto.toLowerCase()}`}
+      >
+        {texto}
+        <span aria-hidden className={`text-xs ${activo ? "" : "opacity-30"}`}>
+          {activo ? (orden.asc ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
 
