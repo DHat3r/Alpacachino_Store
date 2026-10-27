@@ -13,7 +13,7 @@ están fuera del alcance actual; el código de Mercado Pago y Webpay existe pero
 | Correo en desarrollo | Mailhog |
 
 > La referencia detallada de cada endpoint está en [`docs/API.md`](docs/API.md).
-> El sistema visual del frontend está en [`front/DISENO.md`](front/DISENO.md).
+> El sistema visual del frontend está en [`docs/DISENO.md`](docs/DISENO.md).
 
 ---
 
@@ -140,8 +140,9 @@ Alpacachino_Store/
 │   ├── scripts/             seed_demo.py, import_catalog.py, check_db.py
 │   └── tests/               pruebas (pytest)
 ├── front/                   Tienda (React + Vite)
-│   └── DISENO.md            sistema visual, modo oscuro, sombrero de Alpachino
-├── docs/API.md              referencia de endpoints
+├── docs/
+│   ├── API.md               referencia de endpoints
+│   └── DISENO.md            sistema visual, modo oscuro, panel de administración
 ├── docker-compose.yml       db, redis, api, worker, beat, web, mailhog, adminer
 ├── .env.example             variables de entorno documentadas
 ├── PASOS_A_SEGUIR.md        hoja de ruta y estado
