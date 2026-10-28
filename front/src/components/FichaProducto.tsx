@@ -20,7 +20,8 @@ export interface ProductoFicha {
 
 export function stockDisponible(p: ProductoFicha): number {
   if (typeof p.available_stock === "number") return p.available_stock;
-  return (p.inventory_quantity ?? 0) - (p.inventory_reserved ?? 0);
+  // inventory_quantity ya excluye lo reservado.
+  return p.inventory_quantity ?? 0;
 }
 
 /**

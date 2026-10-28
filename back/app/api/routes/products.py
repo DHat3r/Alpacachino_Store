@@ -127,7 +127,7 @@ def list_products(
         stmt = stmt.filter(Product.price <= max_price)
 
     if in_stock:
-        stmt = stmt.join(Inventory).filter((Inventory.quantity - Inventory.reserved) > 0)
+        stmt = stmt.join(Inventory).filter(Inventory.quantity > 0)
 
     order_by = {
         "newest": Product.created_at.desc(),

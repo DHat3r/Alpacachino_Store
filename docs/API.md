@@ -1,7 +1,11 @@
 # Referencia de la API — AlpacachinoStore
 
-Todas las rutas cuelgan de `/api`. En local: `http://localhost:8001/api`.
+Todas las rutas cuelgan de `/api`. En local: `http://localhost:<API_PORT>/api` (el puerto lo fija
+`API_PORT` en `.env`; `.env.example` trae `8000` y en este equipo se usa `8001`).
 La documentación interactiva (Swagger) está en `/docs` y solo existe con `DEBUG=true`.
+
+El esquema OpenAPI está versionado en `back/openapi.json`; el frontend genera sus tipos con
+`npm run schema` (→ `front/src/api/schema.d.ts`). Si cambias una ruta, regenera ambos.
 
 ## Índice
 
@@ -250,7 +254,7 @@ Solo aparecen productos activos. Respuesta: `ProductPage`.
       "cover_url": null,
       "category_id": "5c1e…",
       "category": { "id": "5c1e…", "name": "Seinen", "slug": "seinen", "description": null, "is_active": true },
-      "inventory_quantity": 10,
+      "inventory_quantity": 8,
       "inventory_reserved": 2,
       "available_stock": 8,
       "rating_avg": 4.5,
@@ -263,10 +267,15 @@ Solo aparecen productos activos. Respuesta: `ProductPage`.
 }
 ```
 
-Cómo leer el stock: `inventory_quantity` es lo que queda en bodega **después** de las
-reservas, `inventory_reserved` lo apartado en pedidos pendientes, y `available_stock`
-(calculado) es lo que realmente se puede comprar. `rating_avg` y `reviews_count` salen de las
-reseñas visibles del foro; `rating_avg` es `null` si no hay reseñas.
+Cómo leer el stock: `inventory_quantity` es lo que queda **después** de las reservas (la
+reserva lo descuenta), `inventory_reserved` lo apartado en pedidos pendientes, y
+`available_stock` es lo que se puede comprar, que es igual a `inventory_quantity`. Lo que hay
+físicamente en bodega es `quantity + reserved`. En el ejemplo: 10 unidades con 2 reservadas →
+`quantity: 8`, `reserved: 2`, `available_stock: 8`. El filtro `in_stock` y las alertas de stock
+bajo usan esa misma cifra.
+
+`rating_avg` y `reviews_count` salen de las reseñas visibles del foro; `rating_avg` es `null` si
+no hay reseñas.
 
 ### `GET /products/categories`
 
@@ -277,6 +286,20 @@ Parámetro: `include_inactive` (boolean, defecto `false`). Devuelve una lista de
 
 Acepta el UUID o el SKU. Respuesta: un `ProductOut`. `404` si no existe.
 Un producto desactivado responde `404`.
+
+### `GET /products/admin`
+
+Listado del panel. A diferencia del público, incluye productos inactivos y busca también por SKU.
+
+| Parámetro | Tipo | Defecto | Descripción |
+|---|---|---|---|
+| `q` | string (máx. 80) | — | Busca en título y **SKU** |
+| `category` | string | — | Slug de la categoría |
+| `include_inactive` | boolean | `true` | `false` deja solo los activos |
+| `page` | int ≥ 1 | 1 | |
+| `size` | int 1–100 | 20 | |
+
+Orden: más nuevos primero. Respuesta: `ProductPage`.
 
 ### `POST /products/admin`
 
@@ -569,8 +592,8 @@ publicación oculta responde `404`.
 ### `PATCH /forum/posts/{post_id}`
 
 Cuerpo parcial: `title` (3–160) y/o `body` (mín. 10). Solo el autor o el staff; `403` en otro
-caso. No cambia `rating` ni `product_id`.
-vuelve a consultar el detalle si necesitas el valor real.
+caso. No cambia `rating` ni `product_id`. Una publicación oculta responde `404` salvo para el
+staff. La respuesta trae `comments_count` con los comentarios visibles.
 
 ### `DELETE /forum/posts/{post_id}`
 
@@ -619,9 +642,10 @@ Todas exigen rol `moderator` o `admin`. Los interruptores van como **parámetros
 | `PATCH /forum/admin/reports/{id}/resolve` | — | `{ "id", "resolved": true }` |
 
 `GET /forum/admin/reports` acepta `resolved` (boolean, opcional), `page` (1) y `size` (20, máx. 100).
-Cada elemento trae `post_id`, `comment_id`, `reporter_username`, `reason`, `resolved`,
-`resolved_by`, `resolved_at`, `created_at`, `post_title` y `comment_body` para revisar sin abrir
-el hilo.
+Del más nuevo al más antiguo. Cada elemento trae `id`, `post_id`, `comment_id`, `reporter_id`,
+`reporter_username`, `reason`, `resolved`, `resolved_by`, `resolved_at`, `created_at`,
+`post_title` y `comment_body` para revisar sin abrir el hilo. En un reporte de comentario
+`post_id` es `null`, pero `post_title` se completa con la publicación a la que pertenece.
 
 ---
 
@@ -672,11 +696,11 @@ PATCH /api/admin/inventory/0b9f…?delta=20&reason=restock&reference=factura-123
 
 `reason` debe ser uno de los valores del enum `MovementReason`: `sale`, `reservation`, `restock`,
 `adjustment`, `import`, `reservation_released`, `sale_confirmed`. Para ajustes manuales lo habitual
-es `restock` (reposición) o `adjustment` (corrección); otro valor da `422`/error de base. Registra un movimiento de auditoría con el id del
-admin. Respuesta:
+es `restock` (reposición) o `adjustment` (corrección); el panel usa esos dos. Cualquier otro valor
+responde `422`. Registra un movimiento de auditoría con el id del admin. Respuesta:
 
 ```json
-{ "product_id": "0b9f…", "new_quantity": 30, "reserved": 2, "available": 28 }
+{ "product_id": "0b9f…", "new_quantity": 30, "reserved": 2, "available": 30 }
 ```
 
 `404` si no hay inventario para ese producto; `400` si el ajuste dejaría el stock en negativo.
@@ -740,10 +764,30 @@ es `null` salvo en modo manual.
 ### `GET /health` — Público
 
 ```json
-{ "status": "ok", "database": "ok", "version": "0.1.0", "keepalive": { "…": "estado del latido a la base" } }
+{
+  "status": "ok",
+  "database": "ok",
+  "version": "0.1.0",
+  "keepalive": {
+    "enabled": true,
+    "interval_seconds": 300,
+    "checks": 12, "failures": 0,
+    "last_check_at": "2026-10-27T12:00:00+00:00",
+    "last_ok_at": "2026-10-27T12:00:00+00:00",
+    "last_error": null,
+    "stock": { "products": 48, "available": 310, "inconsistent": 0 },
+    "supabase": { "configured": true, "ok": true, "latency_ms": 120,
+                  "last_check_at": "2026-10-27T12:00:00+00:00", "last_error": null }
+  }
+}
 ```
 
-`status` pasa a `degraded` si la base no responde.
+`status` pasa a `degraded` si la base no responde. `keepalive` es el latido que corre dentro de la
+API cada `DB_KEEPALIVE_SECONDS` (300 por defecto; `0` lo apaga): consulta el inventario para que
+Supabase no cierre la sesión ociosa, suma lo disponible (`stock.available`), cuenta los productos
+cuyo `reserved` no coincide con lo apartado en pedidos `pending` (`inconsistent`) y, si hay
+`SUPABASE_URL` y una clave, mide la latencia de la API de Supabase.
+La pestaña «Resumen» del panel muestra estos datos.
 
 ### `GET /ready` — Público
 
@@ -760,6 +804,9 @@ es `null` salvo en modo manual.
 El flujo activo es la transferencia manual y **no usa estas rutas**: el admin confirma con
 `PATCH /orders/admin/{id}/status?new_status=paid`. Las rutas de abajo existen para las pasarelas
 en línea y se activan con `PAYMENT_PROVIDER=mercadopago` o `webpay`.
+
+> El valor por defecto de `PAYMENT_PROVIDER` (en `config.py` y en `.env.example`) es
+> `mercadopago`. Para el flujo de transferencia hay que poner `PAYMENT_PROVIDER=manual` en `.env`.
 
 | Método | Ruta | Resumen |
 |---|---|---|

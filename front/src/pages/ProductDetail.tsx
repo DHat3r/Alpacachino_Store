@@ -88,7 +88,7 @@ export default function ProductDetail() {
   const stock =
     typeof producto.available_stock === "number"
       ? producto.available_stock
-      : producto.inventory_quantity - producto.inventory_reserved;
+      : producto.inventory_quantity;
   const agotado = stock <= 0;
 
   const agregar = () => {

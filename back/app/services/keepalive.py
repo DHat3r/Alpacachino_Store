@@ -31,14 +31,22 @@ from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-# Consulta barata: cuenta filas de inventario, suma lo disponible y detecta
-# inconsistencias (más reservado que lo que hay físicamente).
+# Consulta barata: cuenta filas de inventario, suma lo disponible (``quantity``
+# ya excluye lo reservado) y detecta inconsistencias: productos cuyo
+# ``reserved`` no coincide con lo apartado en pedidos pendientes.
 _STOCK_SQL = text(
     """
-    SELECT count(*)                                     AS products,
-           coalesce(sum(quantity - reserved), 0)        AS available,
-           count(*) FILTER (WHERE quantity < reserved)  AS inconsistent
-      FROM inventory
+    SELECT count(*)                                              AS products,
+           coalesce(sum(i.quantity), 0)                          AS available,
+           count(*) FILTER (WHERE i.reserved <> coalesce(p.qty, 0)) AS inconsistent
+      FROM inventory i
+      LEFT JOIN (
+            SELECT oi.product_id, sum(oi.quantity) AS qty
+              FROM order_items oi
+              JOIN orders o ON o.id = oi.order_id
+             WHERE o.status = 'PENDING'
+             GROUP BY oi.product_id
+      ) p ON p.product_id = i.product_id
     """
 )
 
@@ -129,7 +137,7 @@ async def _run(interval: int) -> None:
                     state.last_error = None
                     if summary["inconsistent"]:
                         logger.warning(
-                            "Inventario inconsistente en %s producto(s): hay más reservado que stock",
+                            "Inventario inconsistente en %s producto(s): lo reservado no cuadra con los pedidos pendientes",
                             summary["inconsistent"],
                         )
                 except asyncio.CancelledError:

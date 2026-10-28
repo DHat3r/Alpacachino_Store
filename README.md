@@ -143,11 +143,15 @@ Alpacachino_Store/
 ├── docs/
 │   ├── API.md               referencia de endpoints
 │   └── DISENO.md            sistema visual, modo oscuro, panel de administración
+├── .github/workflows/ci.yml pytest + build/tests del front + imágenes Docker
 ├── docker-compose.yml       db, redis, api, worker, beat, web, mailhog, adminer
-├── .env.example             variables de entorno documentadas
-├── PASOS_A_SEGUIR.md        hoja de ruta y estado
-└── DEPLOY.md                despliegue
+├── render.yaml              despliegue del backend en Render (API, worker, beat, Redis)
+├── front/vercel.json        despliegue del frontend en Vercel
+└── .env.example             variables de entorno documentadas
 ```
+
+`PASOS_A_SEGUIR.md` (hoja de ruta) y `DEPLOY.md` (despliegue) son notas locales: están en
+`.gitignore` y no se versionan.
 
 ---
 
@@ -165,7 +169,7 @@ docker compose exec -T api python scripts/seed_demo.py       # datos de demostra
 | Servicio | Dirección |
 |---|---|
 | Tienda (frontend) | http://localhost:5173 |
-| API | http://localhost:8001 (puerto configurable con `API_PORT`) |
+| API | http://localhost:8001 (puerto de `API_PORT`; `.env.example` trae 8000) |
 | Documentación interactiva | http://localhost:8001/docs (solo con `DEBUG=true`) |
 | Correos de prueba (Mailhog) | http://localhost:8025 |
 | Adminer (base de datos) | http://localhost:8081 |
@@ -189,14 +193,35 @@ docker compose down        # elimina contenedores (los datos siguen en el volume
 docker compose exec -T api pytest
 ```
 
+La suite crea su propia base `<POSTGRES_DB>_test`. En el front, `npm test` corre Vitest. La CI
+(`.github/workflows/ci.yml`) ejecuta ambas en cada push o PR a `main`/`develop`, valida las
+migraciones y construye las imágenes Docker de producción.
+
+### Scripts del backend
+
+```bash
+docker compose exec -T api python scripts/seed_demo.py [--reset]
+docker compose exec -T api python scripts/import_catalog.py --file data/catalogo.xlsx --dry-run
+docker compose exec -T api python scripts/check_db.py [--loop 5]
+```
+
+`import_catalog.py` carga un Excel con columnas `sku`, `titulo`, `precio` y `stock` (obligatorias);
+`--dry-run` valida sin escribir y `--limit N` procesa solo las primeras filas. `check_db.py`
+comprueba la conexión configurada y muestra el latido de stock.
+
 ### Frontend sin Docker
 
 ```bash
 cd front
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:5173 (proxy /api → localhost:8001)
 npm run build      # tsc + vite build
+npm test           # Vitest
+npm run schema     # regenera src/api/schema.d.ts desde back/openapi.json
 ```
+
+En producción el front usa `VITE_API_URL` para apuntar a la API; `VITE_PROXY_TARGET` cambia el
+destino del proxy en desarrollo.
 
 ---
 
@@ -210,7 +235,8 @@ Las variables más importantes. La lista completa, comentada, está en `.env.exa
 | `ENV`, `DEBUG` | `production` activa HSTS; `DEBUG=false` oculta `/docs` |
 | `DATABASE_URL` | Conexión a Supabase; si está vacía se usan las `POSTGRES_*` del Docker local |
 | `BACKEND_CORS_ORIGINS`, `PUBLIC_SITE_URL` | Orígenes permitidos y URL pública del sitio |
-| `PAYMENT_PROVIDER` | `manual` para transferencia (flujo activo) |
+| `PAYMENT_PROVIDER` | `manual` para transferencia (flujo activo). **Ojo:** el valor por defecto y el de `.env.example` es `mercadopago`, hay que cambiarlo |
+| `DB_KEEPALIVE_SECONDS` | Cada cuánto la API consulta la base para mantener viva la sesión de Supabase (300; `0` lo apaga) |
 | `MANUAL_PAYMENT_HOURS` | Plazo de la reserva en transferencia (24) |
 | `BANK_NAME`, `BANK_ACCOUNT_TYPE`, `BANK_ACCOUNT_NUMBER`, `BANK_HOLDER`, `BANK_RUT`, `BANK_EMAIL` | Datos que ve el cliente para transferir |
 | `SHIPPING_COST`, `FREE_SHIPPING_FROM` | Envío fijo y umbral de envío gratis (CLP) |
@@ -236,6 +262,10 @@ Las variables más importantes. La lista completa, comentada, está en `.env.exa
 
 ## 6. Dónde seguir
 
-`PASOS_A_SEGUIR.md` lleva el estado de cada fase y lo pendiente. Entre lo próximo:
-pestañas del panel admin para productos, categorías y moderación; recuperación de contraseña
-(requiere un endpoint nuevo); portadas de los productos; y el despliegue (`DEPLOY.md`).
+Ya están hechas las pestañas del panel admin para productos, categorías y moderación, la subida
+de portadas a Supabase Storage y el orden por columna del inventario.
+
+Pendiente:
+
+- Recuperación de contraseña (requiere un endpoint nuevo).
+- El despliegue (`render.yaml`, `front/vercel.json`; notas locales en `DEPLOY.md`).

@@ -46,7 +46,8 @@ def test_checkout_exitoso_reserva_stock(
     inv = db.get(Inventory, product.id)
     assert inv.quantity == 8
     assert inv.reserved == 2
-    assert inv.available() == 6
+    # quantity ya excluye lo reservado: no se descuenta dos veces.
+    assert inv.available() == 8
 
     order = db.get(Order, 1)
     assert order.status == OrderStatus.PENDING

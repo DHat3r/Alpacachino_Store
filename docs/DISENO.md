@@ -24,7 +24,12 @@ como cualquier utilidad: `bg-papel`, `text-tinta`, `border-humo`, `bg-morado`…
 | `morado-tenue` | `#ece2fb` | Fondos suaves, avatares |
 | `lila` | `#b79cf0` | Acentos sobre fondo tinta |
 | `durazno` / `durazno-hondo` | `#e5a21a` / `#845200` | Estrellas, poco stock, pedido por pagar |
-| `exito` / `alerta` | `#15603f` / `#b3261e` | Confirmaciones y errores |
+| `durazno-tenue` | `#fcf0d6` | Fondo de avisos de poco stock / por pagar |
+| `exito` / `exito-tenue` | `#15603f` / `#ddf1e7` | Confirmaciones (texto / fondo) |
+| `alerta` / `alerta-tenue` | `#b3261e` / `#fbe9e7` | Errores (texto / fondo) |
+| `superficie` | `#ffffff` | Fondo de paneles y campos (ver «Modo oscuro») |
+| `nocturno` / `nocturno-texto` | `#1b1420` / `#e9ebf2` | Bloques oscuros en ambos temas |
+| `morado-texto` | `#5b2ba6` | Morado para texto (aclara en oscuro) |
 
 Los tonos "tenue" son para fondos; los "hondo" para el texto encima de ellos (contraste AA).
 
@@ -89,6 +94,26 @@ Definidas en `@layer components` de `front/src/index.css`:
 | `front/src/components/FichaProducto.tsx` | Ficha del catálogo, con la obi y el estado de stock. |
 | `front/src/components/ui.tsx` | `EstadoPedido`, `Estrellas`, `Aviso`, `Vacio`, `Cargando`, `ErrorCarga`, `FichaSkeleton`, `Paginacion`. |
 | `front/src/lib/format.ts` | `clp`, `fecha`, `fechaHora`, `plural`, `faltan`, `duracionReserva`. |
+| `front/src/lib/tema.ts` | `useTema()` y `temaGuardado()`: tema claro/oscuro. |
+| `front/src/api/client.ts` | Cliente axios: agrega el token y, ante un `401`, renueva una sola vez con `/auth/refresh` (si falla, cierra sesión y manda a `/login`). Base `/api` o `VITE_API_URL`. |
+| `front/src/api/config.ts` | `useConfig()`: lee `/api/config` (envío, plazos, datos de transferencia). |
+| `front/src/store/auth.ts` / `cart.ts` | Sesión y carrito con Zustand, persistidos en `localStorage`. |
+
+## Rutas del frontend
+
+Definidas en `front/src/App.tsx`, todas dentro de `Layout`:
+
+| Ruta | Página | Acceso |
+|---|---|---|
+| `/` | `Home` | Público |
+| `/catalogo`, `/producto/:sku` | `Catalog`, `ProductDetail` | Público |
+| `/carrito`, `/checkout` | `Cart`, `Checkout` | Público (el carrito manda a `/login` si no hay sesión al ir a pagar) |
+| `/login`, `/register` | `Login`, `Register` | Público |
+| `/foro`, `/foro/:id` | `Forum`, `PostDetail` | Público |
+| `/terminos`, `/privacidad` | `Legal` | Público |
+| `/mis-pedidos`, `/pedido/:id`, `/cuenta` | `MyOrders`, `OrderDetail`, `Account` | Con sesión |
+| `/admin` | `Admin` | Rol `admin` (si no, vuelve a `/`) |
+| `*` | `NotFound` | — |
 
 ## Panel de administración
 
@@ -100,7 +125,7 @@ Definidas en `@layer components` de `front/src/index.css`:
 | Resumen | `Admin.tsx` | KPIs y estado del sistema (API, base, Supabase, stock) |
 | Productos | `admin/ProductosTab.tsx` | Alta, edición, activar/desactivar y portada (subida o URL) |
 | Categorías | `admin/CategoriasTab.tsx` | Alta, renombrar y activar/desactivar |
-| Inventario | `Admin.tsx` | Stock bajo el umbral, ajuste con motivo y tabla ordenable por columna |
+| Inventario | `Admin.tsx` | Productos bajo un umbral editable (5 por defecto), ajuste de stock con motivo y tabla ordenable por Producto, SKU, Total, Reservado o Disponible (clic en el encabezado; otro clic invierte el orden). «Total» es lo que hay en bodega (`quantity + reserved`) y «Disponible» es `quantity` |
 | Pedidos | `Admin.tsx` | Cambiar estado (solo transiciones válidas) |
 | Moderación | `admin/ModeracionTab.tsx` | Reportes del foro: ocultar contenido y marcar resuelto |
 | Usuarios | `Admin.tsx` | Rol y activar/desactivar |

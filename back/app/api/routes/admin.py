@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.models.product import Product, Inventory
 from app.models.order import Order, OrderStatus
-from app.models.inventory_movement import InventoryMovement
+from app.models.inventory_movement import InventoryMovement, MovementReason
 from app.services import inventory as inv_service
 from app.schemas.product import ProductOut
 
@@ -35,7 +35,7 @@ def dashboard(db: Session = Depends(get_db), _=Depends(require_admin)):
     # Low stock alerts
     low_stock = db.query(Inventory).join(Product).filter(
         Product.is_active == True,
-        (Inventory.quantity - Inventory.reserved) <= 5
+        Inventory.quantity <= 5
     ).count()
 
     return {
@@ -52,7 +52,7 @@ def dashboard(db: Session = Depends(get_db), _=Depends(require_admin)):
 def low_stock(threshold: int = Query(5, ge=0), db: Session = Depends(get_db), _=Depends(require_admin)):
     items = db.query(Inventory).join(Product).filter(
         Product.is_active == True,
-        (Inventory.quantity - Inventory.reserved) <= threshold
+        Inventory.quantity <= threshold
     ).all()
 
     return [
@@ -72,7 +72,7 @@ def low_stock(threshold: int = Query(5, ge=0), db: Session = Depends(get_db), _=
 def adjust_inventory(
     product_id: str,
     delta: int,
-    reason: str,
+    reason: MovementReason,
     reference: str | None = None,
     db: Session = Depends(get_db),
     user = Depends(require_admin),

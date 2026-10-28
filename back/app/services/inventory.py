@@ -163,7 +163,7 @@ def get_low_stock(threshold: int = 5) -> list[Inventory]:
             select(Inventory)
             .join(Product)
             .where(Product.is_active == True)
-            .where((Inventory.quantity - Inventory.reserved) <= threshold)
+            .where(Inventory.quantity <= threshold)
         ).scalars().all()
     finally:
         db.close()

@@ -318,11 +318,13 @@ function InventoryTab() {
       const res = await api.patch(`/admin/inventory/${input.productId}`, null, {
         params: { delta: input.delta, reason: input.reason },
       });
-      return res.data as { available: number; new_quantity: number };
+      return res.data as { available: number; new_quantity: number; reserved: number };
     },
     onSuccess: (result) => {
       setFeedback(
-        `Stock actualizado: quedan ${result.available} unidades disponibles (total ${result.new_quantity}).`
+        `Stock actualizado: quedan ${result.available} unidades disponibles (total en bodega ${
+          result.new_quantity + result.reserved
+        }).`
       );
       queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
@@ -331,8 +333,9 @@ function InventoryTab() {
     onError: () => setFeedback("No se pudo ajustar el stock."),
   });
 
+  // quantity ya excluye lo reservado: el total en bodega es quantity + reserved.
   const filas = data
-    ? [...data].sort((a, b) => {
+    ? data.map((i) => ({ ...i, total: i.quantity + i.reserved })).sort((a, b) => {
         const va = a[orden.campo];
         const vb = b[orden.campo];
         const cmp =
@@ -382,7 +385,7 @@ function InventoryTab() {
               <tr>
                 <EncabezadoOrden campo="title" texto="Producto" orden={orden} onOrdenar={ordenarPor} />
                 <EncabezadoOrden campo="sku" texto="SKU" orden={orden} onOrdenar={ordenarPor} />
-                <EncabezadoOrden campo="quantity" texto="Total" orden={orden} onOrdenar={ordenarPor} derecha />
+                <EncabezadoOrden campo="total" texto="Total" orden={orden} onOrdenar={ordenarPor} derecha />
                 <EncabezadoOrden campo="reserved" texto="Reservado" orden={orden} onOrdenar={ordenarPor} derecha />
                 <EncabezadoOrden campo="available" texto="Disponible" orden={orden} onOrdenar={ordenarPor} derecha />
                 <th className="text-left px-4 py-3 font-medium">Ajustar</th>
@@ -407,7 +410,7 @@ function InventoryTab() {
   );
 }
 
-type CampoInventario = "title" | "sku" | "quantity" | "reserved" | "available";
+type CampoInventario = "title" | "sku" | "total" | "reserved" | "available";
 
 /** Encabezado de columna que ordena al hacer clic (vuelve a hacer clic para invertir). */
 function EncabezadoOrden({
@@ -462,7 +465,7 @@ function InventoryRow({
     <tr>
       <td className="px-4 py-3 font-medium text-tinta">{item.title}</td>
       <td className="px-4 py-3 text-tinta-suave">{item.sku}</td>
-      <td className="px-4 py-3 text-right">{item.quantity}</td>
+      <td className="px-4 py-3 text-right">{item.quantity + item.reserved}</td>
       <td className="px-4 py-3 text-right">{item.reserved}</td>
       <td
         className={`px-4 py-3 text-right font-semibold ${

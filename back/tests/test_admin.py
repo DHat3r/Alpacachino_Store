@@ -46,6 +46,19 @@ def test_ajuste_inventario_y_movimientos(
     assert movs.json()["items"][0]["reason"] == "restock"
 
 
+def test_ajuste_inventario_motivo_invalido(
+    client: TestClient, admin_headers, product_factory
+):
+    product = product_factory(stock=5)
+
+    res = client.patch(
+        f"/api/admin/inventory/{product.id}",
+        params={"delta": 1, "reason": "regalo"},
+        headers=admin_headers,
+    )
+    assert res.status_code == 422
+
+
 def test_listar_usuarios(client: TestClient, admin_headers, customer):
     res = client.get("/api/admin/users", headers=admin_headers)
     assert res.status_code == 200
