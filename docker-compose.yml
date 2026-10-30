@@ -2,11 +2,15 @@
 #  AlpacachinoStore — orquestación local de contenedores
 #  Uso:  docker compose up -d --build
 #  Herramientas:  docker compose --profile tools up -d
+#
+#  La base de datos es Supabase (DATABASE_URL en .env). El PostgreSQL local
+#  solo se levanta para las pruebas o para trabajar sin conexión:
+#      docker compose --profile local-db up -d db
 # ─────────────────────────────────────────────────────────────
 name: alpacachino
 
 services:
-  # ───────────────────────── Base de datos ─────────────────────────
+  # ──────────── Base de datos local (pruebas / sin conexión) ────────────
   db:
     image: postgres:16-alpine
     container_name: alpacachino_db
@@ -25,6 +29,7 @@ services:
       timeout: 5s
       retries: 12
     networks: [alpacachino_net]
+    profiles: [local-db]
 
   # ──────────────────────────── Redis ─────────────────────────────
   redis:
@@ -57,8 +62,6 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
@@ -77,8 +80,6 @@ services:
     volumes:
       - ./back:/app
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     command: celery -A app.worker.celery_app worker -l info --concurrency=2
@@ -138,9 +139,6 @@ services:
     container_name: alpacachino_adminer
     ports:
       - "8081:8080"
-    depends_on:
-      db:
-        condition: service_healthy
     networks: [alpacachino_net]
     profiles: [tools]
 

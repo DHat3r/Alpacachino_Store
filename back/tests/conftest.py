@@ -13,6 +13,11 @@ from __future__ import annotations
 
 import os
 
+# Las pruebas nunca deben tocar Supabase: sin DATABASE_URL, el motor de la app
+# (y Alembic) apunta al PostgreSQL local de las variables POSTGRES_*. Va antes
+# de importar app.*, que lee la configuración al importarse.
+os.environ["DATABASE_URL"] = ""
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
