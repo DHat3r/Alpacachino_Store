@@ -1,79 +1,8 @@
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
-
-/* ------------------------------------------------------------------ */
-/* Estados de pedido                                                    */
-/* ------------------------------------------------------------------ */
-
-const ESTADOS: Record<string, { texto: string; clase: string }> = {
-  pending: { texto: "Esperando pago", clase: "bg-durazno-tenue text-durazno-hondo" },
-  paid: { texto: "Pagado", clase: "bg-exito-tenue text-exito" },
-  shipped: { texto: "Enviado", clase: "bg-morado-tenue text-morado-texto" },
-  delivered: { texto: "Entregado", clase: "bg-exito-tenue text-exito" },
-  cancelled: { texto: "Cancelado", clase: "bg-nube-hondo text-tinta-suave" },
-  expired: { texto: "Reserva vencida", clase: "bg-nube-hondo text-tinta-suave" },
-  failed: { texto: "Pago rechazado", clase: "bg-alerta-tenue text-alerta" },
-};
-
-export function EstadoPedido({ estado }: { estado: string }) {
-  const e = ESTADOS[estado] ?? { texto: estado, clase: "bg-nube-hondo text-tinta-suave" };
-  return <span className={`insignia ${e.clase}`}>{e.texto}</span>;
-}
-
-export function textoEstado(estado: string): string {
-  return ESTADOS[estado]?.texto ?? estado;
-}
 
 /* ------------------------------------------------------------------ */
 /* Piezas sueltas                                                       */
 /* ------------------------------------------------------------------ */
-
-export function Estrellas({
-  valor,
-  cantidad,
-}: {
-  valor: number;
-  cantidad?: number | null;
-}) {
-  const llenas = Math.round(valor);
-  return (
-    <span className="inline-flex items-center gap-1.5 text-sm">
-      <span aria-hidden className="text-durazno">
-        {"★".repeat(llenas)}
-        <span className="text-humo">{"★".repeat(Math.max(0, 5 - llenas))}</span>
-      </span>
-      <span className="font-semibold">{valor.toFixed(1)}</span>
-      {cantidad != null && (
-        <span className="text-tinta-suave">
-          ({cantidad} {cantidad === 1 ? "reseña" : "reseñas"})
-        </span>
-      )}
-    </span>
-  );
-}
-
-export function Aviso({
-  tono = "info",
-  children,
-}: {
-  tono?: "info" | "error" | "ok" | "atencion";
-  children: ReactNode;
-}) {
-  const clases = {
-    info: "bg-morado-tenue text-morado-hondo",
-    error: "bg-alerta-tenue text-alerta",
-    ok: "bg-exito-tenue text-exito",
-    atencion: "bg-durazno-tenue text-tinta",
-  }[tono];
-  return (
-    <div
-      role={tono === "error" ? "alert" : undefined}
-      className={`rounded-xl px-4 py-3 text-sm ${clases}`}
-    >
-      {children}
-    </div>
-  );
-}
 
 export function Vacio({
   titulo,

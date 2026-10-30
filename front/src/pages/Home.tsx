@@ -1,28 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
 
 import Alpaca from "../components/Alpaca";
 import FichaProducto, { type ProductoFicha } from "../components/FichaProducto";
 import { FichaSkeleton } from "../components/ui";
 import { api } from "../api/client";
-import { useConfig } from "../api/config";
-import { clp, duracionReserva, fecha, plural } from "../lib/format";
-
-interface PostResumen {
-  id: number;
-  title: string;
-  body: string;
-  author_username: string;
-  created_at: string;
-  comments_count: number;
-  rating: number | null;
-}
 
 export default function Home() {
-  const { data: config } = useConfig();
-
   const { data: novedades, isLoading } = useQuery({
     queryKey: ["home-novedades"],
     queryFn: async () => {
@@ -31,18 +16,9 @@ export default function Home() {
     },
   });
 
-  const { data: posts } = useQuery({
-    queryKey: ["home-foro"],
-    queryFn: async () => {
-      const res = await api.get("/forum/posts", { params: { size: 3 } });
-      return res.data.items as PostResumen[];
-    },
-  });
-
   // Cambiar la llave vuelve a montar la alpaca, y con eso el sombrero vuela de nuevo.
   const [vuelo, setVuelo] = useState(0);
 
-  const reserva = config ? duracionReserva(config.reservation_minutes) : null;
   const portadas = (novedades ?? []).filter((p) => p.cover_url).slice(0, 3);
   const hayPortadas = portadas.length >= 3;
 
@@ -53,19 +29,15 @@ export default function Home() {
         <div className="grid gap-2 lg:grid-cols-12">
           <div className="panel-papel flex flex-col justify-center px-6 py-12 sm:px-10 sm:py-16 lg:col-span-7">
             <h1 className="max-w-xl font-display text-4xl font-extrabold leading-[1.05] sm:text-5xl lg:text-6xl">
-              Manga y cómics con comunidad incluida.
+              Manga y cómics con stock real.
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-tinta-suave">
-              {reserva
-                ? `Stock real, reserva de ${reserva} para pagar por transferencia y un foro donde se comenta cada tomo.`
-                : "Stock real, pago por transferencia y un foro donde se comenta cada tomo."}
+              Busca por título o autor, filtra por categoría y precio, y revisa la ficha de
+              cada tomo.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/catalogo" className="btn btn-primario btn-grande">
                 Ver catálogo
-              </Link>
-              <Link to="/foro" className="btn btn-secundario btn-grande">
-                Entrar al foro
               </Link>
             </div>
           </div>
@@ -142,116 +114,6 @@ export default function Home() {
             : novedades?.map((p) => <FichaProducto key={p.id} producto={p} />)}
         </div>
       </section>
-
-      {/* Cómo funciona la compra */}
-      <section className="contenedor py-12">
-        <div className="panel-papel grid gap-8 px-6 py-10 sm:px-10 md:grid-cols-3">
-          <Dato
-            titulo="Despacho a todo Chile"
-            texto={
-              config
-                ? `Envío ${clp(config.shipping_cost)}, gratis sobre ${clp(
-                    config.free_shipping_from,
-                  )}.`
-                : "Starken y Chilexpress a cualquier región."
-            }
-            icono={
-              <path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-            }
-          />
-          <Dato
-            titulo={reserva ? `Reserva de ${reserva}` : "Reserva de stock"}
-            texto="Al confirmar el pedido guardamos el stock mientras haces la transferencia."
-            icono={<path d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />}
-          />
-          <Dato
-            titulo="Pago por transferencia"
-            texto="Te mostramos los datos bancarios y confirmamos al recibir el comprobante."
-            icono={
-              <path d="M4 7h16v10H4zM4 11h16M8 15h4" />
-            }
-          />
-        </div>
-      </section>
-
-      {/* Foro */}
-      <section className="bg-nocturno py-14 text-nocturno-texto">
-        <div className="contenedor">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="titulo-seccion text-white">Lo último del foro</h2>
-            <Link to="/foro" className="text-sm font-semibold text-lila hover:text-white">
-              Ver todas las conversaciones
-            </Link>
-          </div>
-
-          {posts && posts.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              {posts.map((post) => (
-                <Link
-                  key={post.id}
-                  to={`/foro/${post.id}`}
-                  className="group rounded-ficha bg-white/5 p-5 transition-colors hover:bg-white/10"
-                >
-                  {post.rating != null && (
-                    <p className="mb-2 text-sm text-durazno">
-                      {"★".repeat(post.rating)}
-                      <span className="text-white/25">{"★".repeat(5 - post.rating)}</span>
-                    </p>
-                  )}
-                  <h3 className="font-display text-lg font-extrabold leading-snug text-white">
-                    {post.title}
-                  </h3>
-                  <p className="mt-2 line-clamp-3 text-sm text-nocturno-texto/70">{post.body}</p>
-                  <p className="mt-4 text-xs text-nocturno-texto/50">
-                    {post.author_username}
-                    <span className="mx-2 text-white/20">|</span>
-                    {fecha(post.created_at)}
-                    <span className="mx-2 text-white/20">|</span>
-                    {plural(post.comments_count, "comentario", "comentarios")}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-nocturno-texto/70">
-              Todavía no hay publicaciones.{" "}
-              <Link to="/foro" className="font-semibold text-lila hover:text-white">
-                Abre la primera conversación
-              </Link>
-              .
-            </p>
-          )}
-        </div>
-      </section>
     </>
-  );
-}
-
-function Dato({
-  titulo,
-  texto,
-  icono,
-}: {
-  titulo: string;
-  texto: string;
-  icono: ReactNode;
-}) {
-  return (
-    <div>
-      <svg
-        viewBox="0 0 24 24"
-        className="h-7 w-7 text-morado-texto"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        {icono}
-      </svg>
-      <h3 className="mt-3 font-display text-lg font-extrabold">{titulo}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-tinta-suave">{texto}</p>
-    </div>
   );
 }

@@ -14,8 +14,6 @@ export interface ProductoFicha {
   inventory_quantity?: number;
   inventory_reserved?: number;
   available_stock?: number | null;
-  rating_avg?: number | null;
-  reviews_count?: number;
 }
 
 export function stockDisponible(p: ProductoFicha): number {
@@ -78,15 +76,6 @@ export default function FichaProducto({ producto }: { producto: ProductoFicha })
         </h3>
         {producto.author && (
           <p className="mt-0.5 line-clamp-1 text-sm text-tinta-suave">{producto.author}</p>
-        )}
-        {producto.rating_avg != null && (
-          <p className="mt-1 text-sm">
-            <span aria-hidden className="text-durazno">
-              ★
-            </span>{" "}
-            <span className="font-semibold">{producto.rating_avg.toFixed(1)}</span>{" "}
-            <span className="text-tinta-suave">({producto.reviews_count ?? 0})</span>
-          </p>
         )}
       </div>
     </Link>

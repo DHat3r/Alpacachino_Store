@@ -1,15 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 import Alpaca from "./Alpaca";
-import { useAuth } from "../store/auth";
-import { useCart } from "../store/cart";
 import { useConfig } from "../api/config";
 import { useTema } from "../lib/tema";
 
 const NAVEGACION = [
   { a: "/catalogo", texto: "Catálogo" },
-  { a: "/foro", texto: "Foro" },
 ];
 
 function claseNav({ isActive }: { isActive: boolean }) {
@@ -19,36 +16,15 @@ function claseNav({ isActive }: { isActive: boolean }) {
 }
 
 export default function Layout() {
-  const { user, logout, isAuthenticated } = useAuth();
-  const cantidad = useCart((s) => s.itemCount());
   const { data: config } = useConfig();
   const { tema, cambiarTema } = useTema();
   const location = useLocation();
-  const navigate = useNavigate();
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [cuentaAbierta, setCuentaAbierta] = useState(false);
-  const cuentaRef = useRef<HTMLDivElement>(null);
 
-  // Cierra los menús al cambiar de página.
+  // Cierra el menú al cambiar de página.
   useEffect(() => {
     setMenuAbierto(false);
-    setCuentaAbierta(false);
   }, [location.pathname]);
-
-  // Cierra el menú de cuenta al hacer clic fuera.
-  useEffect(() => {
-    if (!cuentaAbierta) return;
-    const fuera = (e: MouseEvent) => {
-      if (!cuentaRef.current?.contains(e.target as Node)) setCuentaAbierta(false);
-    };
-    document.addEventListener("mousedown", fuera);
-    return () => document.removeEventListener("mousedown", fuera);
-  }, [cuentaAbierta]);
-
-  const salir = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -74,11 +50,6 @@ export default function Layout() {
                 {i.texto}
               </NavLink>
             ))}
-            {user?.role === "admin" && (
-              <NavLink to="/admin" className={claseNav}>
-                Administración
-              </NavLink>
-            )}
           </nav>
 
           <div className="ml-auto flex items-center gap-1.5">
@@ -99,59 +70,6 @@ export default function Layout() {
                 </svg>
               )}
             </button>
-
-            <Link
-              to="/carrito"
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-tinta transition-colors hover:bg-morado-tenue"
-            >
-              Carrito
-              {cantidad > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-morado px-1 text-[11px] font-bold text-white">
-                  {cantidad}
-                </span>
-              )}
-            </Link>
-
-            {isAuthenticated() ? (
-              <div className="relative" ref={cuentaRef}>
-                <button
-                  onClick={() => setCuentaAbierta((v) => !v)}
-                  aria-expanded={cuentaAbierta}
-                  className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold transition-colors hover:bg-morado-tenue"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-morado text-xs font-bold text-white">
-                    {user?.username?.[0]?.toUpperCase() ?? "?"}
-                  </span>
-                  <span className="hidden sm:inline">{user?.username}</span>
-                </button>
-                {cuentaAbierta && (
-                  <div className="panel absolute right-0 mt-2 w-52 overflow-hidden p-1.5">
-                    <Link
-                      to="/mis-pedidos"
-                      className="block rounded-lg px-3 py-2 text-sm hover:bg-papel"
-                    >
-                      Mis pedidos
-                    </Link>
-                    <Link
-                      to="/cuenta"
-                      className="block rounded-lg px-3 py-2 text-sm hover:bg-papel"
-                    >
-                      Mi cuenta
-                    </Link>
-                    <button
-                      onClick={salir}
-                      className="block w-full rounded-lg px-3 py-2 text-left text-sm text-alerta hover:bg-alerta-tenue"
-                    >
-                      Cerrar sesión
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link to="/login" className="btn btn-primario hidden sm:inline-flex">
-                Entrar
-              </Link>
-            )}
 
             <button
               onClick={() => setMenuAbierto((v) => !v)}
@@ -174,16 +92,6 @@ export default function Layout() {
                   {i.texto}
                 </NavLink>
               ))}
-              {user?.role === "admin" && (
-                <NavLink to="/admin" className={claseNav}>
-                  Administración
-                </NavLink>
-              )}
-              {!isAuthenticated() && (
-                <Link to="/login" className="btn btn-primario mt-2">
-                  Entrar
-                </Link>
-              )}
             </div>
           </nav>
         )}
@@ -194,14 +102,14 @@ export default function Layout() {
       </main>
 
       <footer className="mt-20 border-t border-humo bg-nocturno text-nocturno-texto">
-        <div className="contenedor grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="contenedor grid gap-10 py-14 sm:grid-cols-3">
           <div>
             <div className="flex items-center gap-2.5">
               <Alpaca sombrero className="h-9 w-9 text-lila" />
               <span className="font-display text-lg font-extrabold">Alpacachino</span>
             </div>
             <p className="mt-3 max-w-xs text-sm text-nocturno-texto/70">
-              Manga, cómics y una comunidad que lee junta. Despachamos a todo Chile.
+              Manga, cómics y novelas gráficas con stock real.
             </p>
           </div>
 
@@ -215,34 +123,6 @@ export default function Layout() {
                   Catálogo
                 </Link>
               </li>
-              <li>
-                <Link to="/carrito" className="hover:text-white">
-                  Carrito
-                </Link>
-              </li>
-              <li>
-                <Link to="/mis-pedidos" className="hover:text-white">
-                  Mis pedidos
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h2 className="font-display text-base font-extrabold text-lila">
-              Comunidad
-            </h2>
-            <ul className="mt-3 space-y-2 text-sm text-nocturno-texto/80">
-              <li>
-                <Link to="/foro" className="hover:text-white">
-                  Foro
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="hover:text-white">
-                  Crear cuenta
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -251,16 +131,6 @@ export default function Layout() {
               Ayuda
             </h2>
             <ul className="mt-3 space-y-2 text-sm text-nocturno-texto/80">
-              <li>
-                <Link to="/terminos" className="hover:text-white">
-                  Términos y compras
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacidad" className="hover:text-white">
-                  Privacidad
-                </Link>
-              </li>
               {config?.seller?.email && (
                 <li>
                   <a href={`mailto:${config.seller.email}`} className="hover:text-white">
