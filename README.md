@@ -1,5 +1,27 @@
 # AlpacachinoStore
 
+> **Rama `avance-edt-2026-10-30`.** Contiene solo las funciones que la EDT del proyecto
+> (`Proyecto_Alpacachino_Store.pdf`) agenda hasta el **30-10-2026**: el catálogo web
+> (paquete 1.5.1). El resto del sistema sigue en `main`.
+>
+> | Tarea EDT | Fechas | Qué hay en esta rama |
+> |---|---|---|
+> | 1.5.1.1.1 Listado de productos | 15–19 oct | `/catalogo` y `GET /api/products` paginado |
+> | 1.5.1.1.2 Filtros y categorías | 19–21 oct | Categoría, rango de precio, «solo con stock» y orden |
+> | 1.5.1.1.3 Búsqueda | 21–23 oct | Búsqueda por título o autor |
+> | 1.5.1.2.1 Información del manga | 23–27 oct | Ficha `/producto/:sku`: autor, editorial, ISBN, descripción |
+> | 1.5.1.2.2 Galería de imágenes | 27–29 oct | Portada del producto (una imagen por tomo) |
+> | 1.5.1.2.3 Disponibilidad y precio | 29 oct – 2 nov | Precio en CLP y estado de stock en la ficha |
+>
+> **No incluye** (agendado desde noviembre): carrito y checkout (1.5.1.3), API de pedidos
+> (1.5.2.2), registro y login (1.5.2.3), panel de administración (1.5.3), pagos, envíos y
+> correos (1.5.4), foro y bots. La API de esta rama solo expone `GET /api/products`,
+> `GET /api/products/categories`, `GET /api/products/{sku_o_id}`, `GET /api/config`,
+> `GET /api/health` y `GET /api/ready`. Las secciones de abajo que hablan de pedidos, foro,
+> roles, Celery o correo describen `main`.
+>
+> El esquema de la base (modelos y migraciones) está completo para no desalinear Supabase.
+
 Tienda chilena de manga y cómics con un foro donde la comunidad comenta cada tomo.
 El pago activo es **transferencia bancaria manual**: el cliente reserva su pedido, transfiere,
 y el administrador confirma el pago a mano. (Bots de WhatsApp/Instagram y pasarelas en línea

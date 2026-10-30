@@ -1,5 +1,11 @@
 # Referencia de la API — AlpacachinoStore
 
+> **Rama `avance-edt-2026-10-30`:** aquí solo existen las rutas públicas de lectura del
+> catálogo (sección 3: `GET /products`, `GET /products/categories` y
+> `GET /products/{sku_or_id}`) y las de la sección 7 (`/config`, `/health`, `/ready`). En esta
+> rama `ProductOut` no trae `rating_avg` ni `reviews_count`, porque las reseñas son del foro. El
+> resto del documento describe `main`.
+
 Todas las rutas cuelgan de `/api`. En local: `http://localhost:<API_PORT>/api` (el puerto lo fija
 `API_PORT` en `.env`; `.env.example` trae `8000` y en este equipo se usa `8001`).
 La documentación interactiva (Swagger) está en `/docs` y solo existe con `DEBUG=true`.

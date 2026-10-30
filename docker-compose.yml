@@ -31,21 +31,6 @@ services:
     networks: [alpacachino_net]
     profiles: [local-db]
 
-  # ──────────────────────────── Redis ─────────────────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: alpacachino_redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks: [alpacachino_net]
-
   # ─────────────────────── API (FastAPI / back) ────────────────────
   api:
     build:
@@ -61,46 +46,7 @@ services:
       - ./back:/app
     ports:
       - "${API_PORT:-8000}:8000"
-    depends_on:
-      redis:
-        condition: service_started
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
-    networks: [alpacachino_net]
-
-  # ────────────────────── Worker Celery (tareas) ───────────────────
-  worker:
-    build:
-      context: ./back
-      target: development
-    container_name: alpacachino_worker
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      POSTGRES_HOST: db
-    volumes:
-      - ./back:/app
-    depends_on:
-      redis:
-        condition: service_started
-    command: celery -A app.worker.celery_app worker -l info --concurrency=2
-    networks: [alpacachino_net]
-
-  # ─────────────────── Beat (tareas programadas) ───────────────────
-  beat:
-    build:
-      context: ./back
-      target: development
-    container_name: alpacachino_beat
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      POSTGRES_HOST: db
-    volumes:
-      - ./back:/app
-    depends_on:
-      redis:
-        condition: service_started
-    command: celery -A app.worker.celery_app beat -l info
     networks: [alpacachino_net]
 
   # ───────────────────── Frontend dev (React) ──────────────────────
@@ -125,15 +71,6 @@ services:
     networks: [alpacachino_net]
 
   # ───────────────────── Herramientas de apoyo ─────────────────────
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: alpacachino_mailhog
-    ports:
-      - "8025:8025"     # UI web
-      - "1025:1025"     # SMTP
-    networks: [alpacachino_net]
-    profiles: [tools]
-
   adminer:
     image: adminer:latest
     container_name: alpacachino_adminer
@@ -144,7 +81,6 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
 
 networks:
   alpacachino_net:
