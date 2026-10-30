@@ -4,6 +4,9 @@
 > (`Proyecto_Alpacachino_Store.pdf`) agenda hasta el **30-10-2026**: el catálogo web
 > (paquete 1.5.1). El resto del sistema sigue en `main`.
 >
+> ⚠️ **Esta rama no se fusiona con `main`.** Es una foto del avance para la entrega: un merge
+> borraría de `main` el login, los pedidos, el panel admin, el foro y los pagos.
+>
 > | Tarea EDT | Fechas | Qué hay en esta rama |
 > |---|---|---|
 > | 1.5.1.1.1 Listado de productos | 15–19 oct | `/catalogo` y `GET /api/products` paginado |
