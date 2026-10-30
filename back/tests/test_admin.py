@@ -117,3 +117,56 @@ def test_admin_endpoints_protegidos(client: TestClient, auth_headers):
         client.get("/api/admin/inventory/low-stock", headers=auth_headers).status_code
         == 403
     )
+
+
+def test_inventario_lista_todos_los_productos(
+    client: TestClient, admin_headers, product_factory
+):
+    product_factory(sku="MUCHO", title="Akira 1", stock=50)
+    product_factory(sku="POCO", title="Berserk 1", stock=2, reserved=1)
+    product_factory(sku="APAGADO", title="Claymore 1", stock=7, is_active=False)
+
+    res = client.get("/api/admin/inventory", headers=admin_headers)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total"] == 2
+    # Por defecto ordena por disponible ascendente.
+    assert [i["sku"] for i in body["items"]] == ["POCO", "MUCHO"]
+    poco = body["items"][0]
+    assert (poco["available"], poco["reserved"], poco["total"]) == (2, 1, 3)
+
+
+def test_inventario_filtros_orden_y_todos(
+    client: TestClient, admin_headers, product_factory
+):
+    for n in range(25):
+        product_factory(sku=f"INV-{n:02d}", title=f"Tomo {n:02d}", stock=n)
+    product_factory(sku="APAGADO", title="Inactivo", stock=1, is_active=False)
+
+    pagina = client.get(
+        "/api/admin/inventory", params={"size": 20, "page": 2}, headers=admin_headers
+    ).json()
+    assert pagina["total"] == 25 and len(pagina["items"]) == 5
+
+    todos = client.get(
+        "/api/admin/inventory",
+        params={"size": 0, "include_inactive": True, "sort": "sku", "order": "desc"},
+        headers=admin_headers,
+    ).json()
+    assert todos["total"] == 26 and len(todos["items"]) == 26
+    assert todos["items"][0]["sku"] == "INV-24"
+
+    bajos = client.get(
+        "/api/admin/inventory", params={"threshold": 3, "size": 0}, headers=admin_headers
+    ).json()
+    assert {i["sku"] for i in bajos["items"]} == {"INV-00", "INV-01", "INV-02", "INV-03"}
+
+    buscado = client.get(
+        "/api/admin/inventory", params={"q": "inv-1"}, headers=admin_headers
+    ).json()
+    assert buscado["total"] == 10
+
+
+def test_inventario_requiere_admin(client: TestClient, auth_headers):
+    res = client.get("/api/admin/inventory", headers=auth_headers)
+    assert res.status_code == 403

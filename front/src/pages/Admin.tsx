@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../store/auth";
-import { textoEstado } from "../components/ui";
+import { Paginacion, textoEstado } from "../components/ui";
 import { clp, fechaHora } from "../lib/format";
 import CategoriasTab from "./admin/CategoriasTab";
 import ModeracionTab from "./admin/ModeracionTab";
@@ -20,13 +20,16 @@ interface Dashboard {
   low_stock_alerts: number;
 }
 
-interface LowStockItem {
+interface InventoryItem {
   product_id: string;
   sku: string;
   title: string;
+  is_active: boolean;
   available: number;
   quantity: number;
   reserved: number;
+  /** Lo que hay en bodega: quantity + reserved. */
+  total: number;
 }
 
 interface AdminOrder {
@@ -294,23 +297,41 @@ function SystemStatus() {
 
 /* ── Inventario ────────────────────────────────────────────── */
 
+/** Opciones del selector «Mostrar»; 0 = todos (la API acepta size=0). */
+const TAMANOS_INVENTARIO = [20, 40, 100, 0];
+
 function InventoryTab() {
   const queryClient = useQueryClient();
+  const [busqueda, setBusqueda] = useState("");
+  const [soloBajo, setSoloBajo] = useState(false);
   const [threshold, setThreshold] = useState(5);
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [tamano, setTamano] = useState(20);
+  const [pagina, setPagina] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ campo: CampoInventario; asc: boolean }>({
     campo: "available",
     asc: true,
   });
 
+  const q = busqueda.trim();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-low-stock", threshold],
+    queryKey: ["admin-inventory", q, soloBajo, threshold, incluirInactivos, tamano, pagina, orden],
     queryFn: async () => {
-      const res = await api.get("/admin/inventory/low-stock", {
-        params: { threshold },
+      const res = await api.get("/admin/inventory", {
+        params: {
+          ...(q ? { q } : {}),
+          ...(soloBajo ? { threshold } : {}),
+          include_inactive: incluirInactivos,
+          sort: orden.campo,
+          order: orden.asc ? "asc" : "desc",
+          page: pagina,
+          size: tamano,
+        },
       });
-      return res.data as LowStockItem[];
+      return res.data as Page<InventoryItem>;
     },
+    placeholderData: (previo) => previo,
   });
 
   const adjust = useMutation({
@@ -326,43 +347,87 @@ function InventoryTab() {
           result.new_quantity + result.reserved
         }).`
       );
-      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
     onError: () => setFeedback("No se pudo ajustar el stock."),
   });
 
-  // quantity ya excluye lo reservado: el total en bodega es quantity + reserved.
-  const filas = data
-    ? data.map((i) => ({ ...i, total: i.quantity + i.reserved })).sort((a, b) => {
-        const va = a[orden.campo];
-        const vb = b[orden.campo];
-        const cmp =
-          typeof va === "number" && typeof vb === "number"
-            ? va - vb
-            : String(va).localeCompare(String(vb), "es", { numeric: true, sensitivity: "base" });
-        return orden.asc ? cmp : -cmp;
-      })
-    : [];
+  /** Cualquier cambio de filtro u orden vuelve a la primera página. */
+  function conPrimeraPagina<T>(set: (v: T) => void) {
+    return (v: T) => {
+      set(v);
+      setPagina(1);
+    };
+  }
 
-  const ordenarPor = (campo: CampoInventario) =>
+  const ordenarPor = (campo: CampoInventario) => {
     setOrden((o) => (o.campo === campo ? { campo, asc: !o.asc } : { campo, asc: true }));
+    setPagina(1);
+  };
+
+  const filas = data?.items ?? [];
+  const totalPaginas = data && tamano ? Math.ceil(data.total / tamano) : 1;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4">
-        <label className="text-sm text-tinta-suave">
-          Umbral de stock bajo
+        <div>
+          <label className="etiqueta-campo" htmlFor="inv-q">Buscar por título o SKU</label>
+          <input
+            id="inv-q"
+            className="campo w-64"
+            value={busqueda}
+            onChange={(e) => conPrimeraPagina(setBusqueda)(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="etiqueta-campo" htmlFor="inv-tamano">Mostrar</label>
+          <select
+            id="inv-tamano"
+            className="campo w-28"
+            value={tamano}
+            onChange={(e) => conPrimeraPagina(setTamano)(Number(e.target.value))}
+          >
+            {TAMANOS_INVENTARIO.map((t) => (
+              <option key={t} value={t}>
+                {t === 0 ? "Todos" : t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-tinta-suave pb-2">
+          <input
+            type="checkbox"
+            checked={soloBajo}
+            onChange={(e) => conPrimeraPagina(setSoloBajo)(e.target.checked)}
+          />
+          Solo stock bajo (≤
           <input
             type="number"
             min={0}
             value={threshold}
-            onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
-            className="ml-3 w-20 px-2 py-1 border border-humo rounded-md"
+            disabled={!soloBajo}
+            onChange={(e) =>
+              conPrimeraPagina(setThreshold)(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="w-16 px-2 py-1 border border-humo rounded-md disabled:opacity-50"
+            aria-label="Umbral de stock bajo"
           />
+          )
         </label>
-        {adjust.isPending && <span className="text-sm text-tinta-suave">Aplicando ajuste...</span>}
+        <label className="flex items-center gap-2 text-sm text-tinta-suave pb-2">
+          <input
+            type="checkbox"
+            checked={incluirInactivos}
+            onChange={(e) => conPrimeraPagina(setIncluirInactivos)(e.target.checked)}
+          />
+          Incluir inactivos
+        </label>
+        {adjust.isPending && (
+          <span className="text-sm text-tinta-suave pb-2">Aplicando ajuste...</span>
+        )}
       </div>
 
       {feedback && (
@@ -374,11 +439,22 @@ function InventoryTab() {
       {isLoading && <p className="text-tinta-suave">Cargando inventario...</p>}
       {error && <p className="text-alerta">Error cargando el inventario</p>}
 
-      {!isLoading && !error && data && data.length === 0 && (
-        <p className="text-tinta-suave">No hay productos bajo el umbral de {threshold} unidades.</p>
+      {data && (
+        <p className="text-sm text-tinta-suave">
+          {data.total} producto{data.total === 1 ? "" : "s"}
+          {tamano > 0 && data.total > tamano && ` · ${tamano} por página`}
+        </p>
       )}
 
-      {data && data.length > 0 && (
+      {!isLoading && !error && data && filas.length === 0 && (
+        <p className="text-tinta-suave">
+          {soloBajo
+            ? `No hay productos con ${threshold} unidades disponibles o menos.`
+            : "No hay productos que coincidan."}
+        </p>
+      )}
+
+      {filas.length > 0 && (
         <div className="panel overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-papel text-tinta-suave">
@@ -406,6 +482,8 @@ function InventoryTab() {
           </table>
         </div>
       )}
+
+      <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambio={setPagina} />
     </div>
   );
 }
@@ -454,7 +532,7 @@ function InventoryRow({
   disabled,
   onAdjust,
 }: {
-  item: LowStockItem;
+  item: InventoryItem;
   disabled: boolean;
   onAdjust: (delta: number, reason: string) => void;
 }) {
@@ -463,9 +541,12 @@ function InventoryRow({
 
   return (
     <tr>
-      <td className="px-4 py-3 font-medium text-tinta">{item.title}</td>
+      <td className="px-4 py-3 font-medium text-tinta">
+        {item.title}
+        {!item.is_active && <span className="insignia ml-2">Inactivo</span>}
+      </td>
       <td className="px-4 py-3 text-tinta-suave">{item.sku}</td>
-      <td className="px-4 py-3 text-right">{item.quantity + item.reserved}</td>
+      <td className="px-4 py-3 text-right">{item.total}</td>
       <td className="px-4 py-3 text-right">{item.reserved}</td>
       <td
         className={`px-4 py-3 text-right font-semibold ${
@@ -534,7 +615,7 @@ function OrdersTab() {
       setFeedback(`Pedido #${order.id} actualizado a "${order.status}".`);
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-low-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-inventory"] });
     },
     onError: () => setFeedback("No se pudo actualizar el pedido."),
   });

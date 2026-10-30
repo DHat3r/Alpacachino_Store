@@ -432,6 +432,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Inventory
+         * @description Inventario completo, paginado y ordenado en el servidor.
+         */
+        get: operations["list_inventory_api_admin_inventory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/inventory/{product_id}": {
         parameters: {
             query?: never;
@@ -980,6 +1000,11 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * MovementReason
+         * @enum {string}
+         */
+        MovementReason: "sale" | "reservation" | "restock" | "adjustment" | "import" | "reservation_released" | "sale_confirmed";
         /** OrderItemOut */
         OrderItemOut: {
             /** Id */
@@ -1222,7 +1247,7 @@ export interface components {
             created_at: string;
             /**
              * Available Stock
-             * @description Stock realmente comprable (total menos reservas activas).
+             * @description Stock realmente comprable: ``quantity`` ya excluye lo reservado.
              */
             readonly available_stock: number;
         };
@@ -2237,11 +2262,51 @@ export interface operations {
             };
         };
     };
+    list_inventory_api_admin_inventory_get: {
+        parameters: {
+            query?: {
+                /** @description Busca en título y SKU */
+                q?: string | null;
+                /** @description Solo productos con disponible <= threshold */
+                threshold?: number | null;
+                include_inactive?: boolean;
+                sort?: string;
+                order?: string;
+                page?: number;
+                /** @description 0 = todos */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     adjust_inventory_api_admin_inventory__product_id__patch: {
         parameters: {
             query: {
                 delta: number;
-                reason: string;
+                reason: components["schemas"]["MovementReason"];
                 reference?: string | null;
             };
             header?: never;
