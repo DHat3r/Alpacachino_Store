@@ -1,15 +1,10 @@
 """Product and Category schemas."""
 
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 from typing import Optional
 from decimal import Decimal
 from datetime import datetime
 import uuid
-
-
-class CategoryCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    description: Optional[str] = None
 
 
 class CategoryOut(BaseModel):
@@ -20,37 +15,6 @@ class CategoryOut(BaseModel):
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class CategoryUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class ProductCreate(BaseModel):
-    sku: str = Field(min_length=1, max_length=40)
-    title: str = Field(min_length=1, max_length=200)
-    author: Optional[str] = Field(default=None, max_length=120)
-    publisher: Optional[str] = Field(default=None, max_length=120)
-    isbn: Optional[str] = Field(default=None, max_length=20)
-    description: Optional[str] = None
-    price: Decimal = Field(ge=0)
-    cover_url: Optional[str] = Field(default=None, max_length=500)
-    category_id: Optional[uuid.UUID] = None
-    stock: int = Field(default=0, ge=0)
-
-
-class ProductUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, max_length=200)
-    author: Optional[str] = Field(default=None, max_length=120)
-    publisher: Optional[str] = Field(default=None, max_length=120)
-    isbn: Optional[str] = Field(default=None, max_length=20)
-    description: Optional[str] = None
-    price: Optional[Decimal] = Field(default=None, ge=0)
-    cover_url: Optional[str] = Field(default=None, max_length=500)
-    category_id: Optional[uuid.UUID] = None
-    is_active: Optional[bool] = None
 
 
 class ProductOut(BaseModel):
@@ -67,8 +31,6 @@ class ProductOut(BaseModel):
     category: Optional[CategoryOut]
     inventory_quantity: int = 0
     inventory_reserved: int = 0
-    rating_avg: Optional[float] = None
-    reviews_count: int = 0
     is_active: bool
     created_at: datetime
 

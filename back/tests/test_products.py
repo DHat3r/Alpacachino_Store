@@ -101,74 +101,9 @@ def test_categorias_publicas(client: TestClient, product_factory):
     assert res.json()[0]["slug"] == "manga"
 
 
-def test_crear_producto_requiere_admin(client: TestClient, auth_headers):
-    payload = {
-        "sku": "NUEVO-001",
-        "title": "Producto nuevo",
-        "price": 9990,
-        "stock": 4,
-    }
-    res = client.post("/api/products/admin", json=payload, headers=auth_headers)
-    assert res.status_code == 403
+def test_producto_desactivado_responde_404_por_sku(client: TestClient, product_factory):
+    product_factory(sku="ACTIVO-1", is_active=True)
+    product_factory(sku="INACTIVO-1", is_active=False)
 
-
-def test_admin_crea_producto_y_categoria(client: TestClient, admin_headers):
-    cat = client.post(
-        "/api/products/admin/categories",
-        json={"name": "Novela Gráfica", "description": "Novelas gráficas"},
-        headers=admin_headers,
-    )
-    assert cat.status_code == 201
-    category_id = cat.json()["id"]
-    assert cat.json()["slug"] == "novela-grafica"
-
-    res = client.post(
-        "/api/products/admin",
-        json={
-            "sku": "NOV-001",
-            "title": "Persépolis",
-            "price": 25990,
-            "stock": 3,
-            "category_id": category_id,
-        },
-        headers=admin_headers,
-    )
-    assert res.status_code == 201, res.text
-    body = res.json()
-    assert body["sku"] == "NOV-001"
-    assert body["inventory_quantity"] == 3
-    assert body["available_stock"] == 3
-
-
-def test_admin_sku_duplicado(client: TestClient, admin_headers, product_factory):
-    product_factory(sku="DUP-001")
-    res = client.post(
-        "/api/products/admin",
-        json={"sku": "DUP-001", "title": "Otro", "price": 1000, "stock": 1},
-        headers=admin_headers,
-    )
-    assert res.status_code == 409
-
-
-def test_admin_actualiza_y_borra_logicamente(client: TestClient, admin_headers, product_factory, db):
-    product = product_factory(sku="EDIT-001", title="Original")
-
-    res = client.patch(
-        f"/api/products/admin/{product.id}",
-        json={"title": "Actualizado", "price": 12345},
-        headers=admin_headers,
-    )
-    assert res.status_code == 200
-    assert res.json()["title"] == "Actualizado"
-    assert res.json()["price"] == "12345"
-
-    res = client.delete(f"/api/products/admin/{product.id}", headers=admin_headers)
-    assert res.status_code == 204
-
-    db.expire_all()
-    from app.models.product import Product
-
-    assert db.get(Product, product.id).is_active is False
-
-    # Ya no aparece en el catálogo público
-    assert client.get("/api/products").json()["total"] == 0
+    assert client.get("/api/products/ACTIVO-1").status_code == 200
+    assert client.get("/api/products/INACTIVO-1").status_code == 404

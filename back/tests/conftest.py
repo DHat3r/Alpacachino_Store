@@ -29,8 +29,6 @@ from app.db.session import Base, get_db
 from app.main import app
 from app.models import *  # noqa: F401,F403  (registra todas las tablas)
 from app.models.product import Category, Inventory, Product
-from app.models.user import User, UserRole
-from app.core.security import hash_password
 
 # Las pruebas no deben consultar la base de desarrollo con el latido de stock.
 settings.DB_KEEPALIVE_SECONDS = 0
@@ -117,75 +115,6 @@ def client(TestingSessionLocal) -> TestClient:
 
 
 # ────────────────────────── Factorías ──────────────────────────
-
-
-@pytest.fixture
-def user_factory(db):
-    def _create(
-        email: str = "cliente@test.cl",
-        username: str = "cliente",
-        password: str = "Clave1234",
-        role: UserRole = UserRole.CUSTOMER,
-    ) -> User:
-        user = User(
-            email=email,
-            username=username,
-            hashed_password=hash_password(password),
-            role=role,
-            is_active=True,
-            is_verified=True,
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
-    return _create
-
-
-@pytest.fixture
-def admin_user(user_factory) -> User:
-    return user_factory(email="admin@test.cl", username="admin", role=UserRole.ADMIN)
-
-
-@pytest.fixture
-def customer(user_factory) -> User:
-    return user_factory()
-
-
-@pytest.fixture
-def moderator_user(user_factory) -> User:
-    return user_factory(email="mod@test.cl", username="moderador", role=UserRole.MODERATOR)
-
-
-@pytest.fixture
-def auth_headers(client, customer) -> dict[str, str]:
-    res = client.post(
-        "/api/auth/login",
-        data={"username": customer.email, "password": "Clave1234"},
-    )
-    assert res.status_code == 200, res.text
-    return {"Authorization": f"Bearer {res.json()['access_token']}"}
-
-
-@pytest.fixture
-def admin_headers(client, admin_user) -> dict[str, str]:
-    res = client.post(
-        "/api/auth/login",
-        data={"username": admin_user.email, "password": "Clave1234"},
-    )
-    assert res.status_code == 200, res.text
-    return {"Authorization": f"Bearer {res.json()['access_token']}"}
-
-
-@pytest.fixture
-def moderator_headers(client, moderator_user) -> dict[str, str]:
-    res = client.post(
-        "/api/auth/login",
-        data={"username": moderator_user.email, "password": "Clave1234"},
-    )
-    assert res.status_code == 200, res.text
-    return {"Authorization": f"Bearer {res.json()['access_token']}"}
 
 
 @pytest.fixture

@@ -1,11 +1,7 @@
 """Services package."""
 
-from app.services import inventory
-from app.services.payments import factory, mercadopago, webpay
+from app.services import keepalive
 
 __all__ = [
-    "inventory",
-    "factory",
-    "mercadopago",
-    "webpay",
+    "keepalive",
 ]

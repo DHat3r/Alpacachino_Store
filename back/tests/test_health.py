@@ -37,7 +37,10 @@ def test_openapi_disponible_en_dev(client: TestClient):
     res = client.get("/openapi.json")
     assert res.status_code == 200
     paths = res.json()["paths"]
-    assert "/api/auth/login" in paths
     assert "/api/products" in paths
-    assert "/api/orders/checkout" in paths
-    assert "/api/forum/posts" in paths
+    assert "/api/products/{sku_or_id}" in paths
+    assert "/api/config" in paths
+    # Rama avance-edt-2026-10-30: lo agendado desde noviembre no está expuesto.
+    assert "/api/auth/login" not in paths
+    assert "/api/orders/checkout" not in paths
+    assert "/api/forum/posts" not in paths

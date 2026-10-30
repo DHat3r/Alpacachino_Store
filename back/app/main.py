@@ -9,17 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.rate_limit import init_limiter
 from app.services.keepalive import start_keepalive, stop_keepalive
-from app.api.routes import (
-    auth,
-    products,
-    orders,
-    payments,
-    admin,
-    forum,
-    webhooks,
-    health,
-    config,
-)
+from app.api.routes import products, health, config
 
 
 @asynccontextmanager
@@ -75,7 +65,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Register all routers with /api prefix
-for router in (auth, products, orders, payments, admin, forum, webhooks, health, config):
+for router in (products, health, config):
     app.include_router(router.router, prefix="/api")
 
 
