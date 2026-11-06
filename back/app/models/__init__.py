@@ -8,6 +8,7 @@ from app.models.payment import Payment, PaymentEvent
 from app.models.forum import ForumPost, ForumComment, ForumReport
 from app.models.bot import BotConversation, BotMessage
 from app.models.inventory_movement import InventoryMovement, MovementReason
+from app.models.integration import PlatformIntegration, PlatformType
 
 __all__ = [
     "User",
@@ -27,4 +28,6 @@ __all__ = [
     "BotMessage",
     "InventoryMovement",
     "MovementReason",
+    "PlatformIntegration",
+    "PlatformType",
 ]

@@ -6,6 +6,7 @@ import { useAuth } from "../store/auth";
 import { textoEstado } from "../components/ui";
 import { clp, fechaHora } from "../lib/format";
 import CategoriasTab from "./admin/CategoriasTab";
+import IntegracionesTab from "./admin/IntegracionesTab";
 import ModeracionTab from "./admin/ModeracionTab";
 import ProductosTab from "./admin/ProductosTab";
 
@@ -86,7 +87,8 @@ type Tab =
   | "inventario"
   | "pedidos"
   | "moderacion"
-  | "usuarios";
+  | "usuarios"
+  | "integraciones";
 
 const ORDER_STATUSES = [
   "pending",
@@ -136,6 +138,7 @@ export default function Admin() {
     { id: "pedidos", label: "Pedidos" },
     { id: "moderacion", label: "Moderación" },
     { id: "usuarios", label: "Usuarios" },
+    { id: "integraciones", label: "Integraciones" },
   ];
 
   return (
@@ -168,6 +171,7 @@ export default function Admin() {
         {tab === "pedidos" && <OrdersTab />}
         {tab === "moderacion" && <ModeracionTab />}
         {tab === "usuarios" && <UsersTab />}
+        {tab === "integraciones" && <IntegracionesTab />}
       </div>
     </div>
   );
