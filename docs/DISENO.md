@@ -125,7 +125,7 @@ Definidas en `front/src/App.tsx`, todas dentro de `Layout`:
 | Resumen | `Admin.tsx` | KPIs y estado del sistema (API, base, Supabase, stock) |
 | Productos | `admin/ProductosTab.tsx` | Alta, edición, activar/desactivar y portada (subida o URL) |
 | Categorías | `admin/CategoriasTab.tsx` | Alta, renombrar y activar/desactivar |
-| Inventario | `Admin.tsx` | Productos bajo un umbral editable (5 por defecto), ajuste de stock con motivo y tabla ordenable por Producto, SKU, Total, Reservado o Disponible (clic en el encabezado; otro clic invierte el orden). «Total» es lo que hay en bodega (`quantity + reserved`) y «Disponible» es `quantity` |
+| Inventario | `Admin.tsx` | Todo el inventario (`GET /admin/inventory`): búsqueda por título o SKU, selector «Mostrar» 20 / 40 / 100 / Todos con paginación, filtro opcional «Solo stock bajo» con umbral (5 por defecto), «Incluir inactivos», ajuste de stock con motivo y tabla ordenable en el servidor por Producto, SKU, Total, Reservado o Disponible (clic en el encabezado; otro clic invierte el orden). «Total» es lo que hay en bodega (`quantity + reserved`) y «Disponible» es `quantity` |
 | Pedidos | `Admin.tsx` | Cambiar estado (solo transiciones válidas) |
 | Moderación | `admin/ModeracionTab.tsx` | Reportes del foro: ocultar contenido y marcar resuelto |
 | Usuarios | `Admin.tsx` | Rol y activar/desactivar |

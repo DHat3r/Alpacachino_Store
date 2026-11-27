@@ -8,7 +8,7 @@ están fuera del alcance actual; el código de Mercado Pago y Webpay existe pero
 | Capa | Tecnología |
 |---|---|
 | Backend | FastAPI, SQLAlchemy, Alembic, Celery + Redis |
-| Base de datos | PostgreSQL (local en Docker; Supabase en la nube) |
+| Base de datos | PostgreSQL en Supabase (el de Docker solo para pruebas) |
 | Frontend | React 18, TypeScript, Vite, Tailwind v4, TanStack Query, Zustand |
 | Correo en desarrollo | Mailhog |
 
@@ -157,14 +157,20 @@ Alpacachino_Store/
 
 ## 3. Puesta en marcha local
 
-Requisitos: Docker Desktop abierto.
+Requisitos: Docker Desktop abierto y un proyecto de Supabase. La base de datos es **Supabase**:
+la API, el worker y beat se conectan con `DATABASE_URL`. El PostgreSQL de Docker (`db`) ya no
+se levanta por defecto; queda en el perfil `local-db` para las pruebas o para trabajar sin
+conexión.
 
 ```bash
-cp .env.example .env          # y completa lo que necesites (ver sección 4)
+cp .env.example .env          # completa DATABASE_URL y las claves de Supabase (sección 4)
 docker compose up -d
-docker compose exec -T api alembic upgrade head              # crea las tablas
-docker compose exec -T api python scripts/seed_demo.py       # datos de demostración
+docker compose exec -T api python scripts/check_db.py        # confirma que conecta a Supabase
+docker compose exec -T api alembic upgrade head              # deja el esquema al día
 ```
+
+Sin conexión, deja `DATABASE_URL` vacía y levanta también la base local:
+`docker compose --profile local-db up -d`.
 
 | Servicio | Dirección |
 |---|---|
@@ -172,12 +178,12 @@ docker compose exec -T api python scripts/seed_demo.py       # datos de demostra
 | API | http://localhost:8001 (puerto de `API_PORT`; `.env.example` trae 8000) |
 | Documentación interactiva | http://localhost:8001/docs (solo con `DEBUG=true`) |
 | Correos de prueba (Mailhog) | http://localhost:8025 |
-| Adminer (base de datos) | http://localhost:8081 |
-| PostgreSQL local | `localhost:5433` |
+| Adminer (base de datos) | http://localhost:8081 (perfil `tools`) |
+| PostgreSQL local | `localhost:5433` (perfil `local-db`) |
 
 `seed_demo.py` crea categorías, ~48 productos, 5 usuarios `@demo.cl`, hilos del foro y pedidos
 en todos los estados. Es idempotente; con `--reset` lo regenera. Los usuarios demo comparten la
-clave `Demo1234`. **Solo para desarrollo local, nunca contra producción.**
+clave `Demo1234`. **Solo contra la base local: con `DATABASE_URL` definida escribiría en Supabase.**
 
 Apagar y encender:
 
@@ -190,10 +196,12 @@ docker compose down        # elimina contenedores (los datos siguen en el volume
 ### Pruebas
 
 ```bash
+docker compose --profile local-db up -d db    # las pruebas usan el PostgreSQL local
 docker compose exec -T api pytest
 ```
 
-La suite crea su propia base `<POSTGRES_DB>_test`. En el front, `npm test` corre Vitest. La CI
+La suite crea su propia base `<POSTGRES_DB>_test` en el PostgreSQL local y **nunca toca
+Supabase**: `conftest.py` vacía `DATABASE_URL` antes de cargar la app. En el front, `npm test` corre Vitest. La CI
 (`.github/workflows/ci.yml`) ejecuta ambas en cada push o PR a `main`/`develop`, valida las
 migraciones y construye las imágenes Docker de producción.
 
@@ -205,8 +213,22 @@ docker compose exec -T api python scripts/import_catalog.py --file data/catalogo
 docker compose exec -T api python scripts/check_db.py [--loop 5]
 ```
 
-`import_catalog.py` carga un Excel con columnas `sku`, `titulo`, `precio` y `stock` (obligatorias);
-`--dry-run` valida sin escribir y `--limit N` procesa solo las primeras filas. `check_db.py`
+`import_catalog.py` carga un Excel con columnas `sku`, `titulo`, `precio` y `stock` (obligatorias)
+y `autor`, `editorial`, `descripcion`, `categoria` (opcionales); acepta precios como `$12.990`.
+`--dry-run` valida sin escribir y `--limit N` procesa solo las primeras filas. Si el SKU ya existe,
+actualiza el producto en vez de duplicarlo.
+
+`clean_marketplace.py` convierte el Excel extraído de Facebook Marketplace (columnas `Título del
+Manga`, `Editorial`, `Tomo / Volumen`, `Condición`, `Precio (CLP)`) al formato del importador:
+genera SKU estables (`MP-…`), corrige columnas corridas y erratas, asigna categoría y deja una hoja
+`revisar` con lo que conviene mirar a mano. Los casos especiales (filas con todo en el título,
+títulos mal escritos) están en los diccionarios del principio del script.
+
+```bash
+docker compose cp Archivos/catalogo.xlsx api:/tmp/catalogo.xlsx
+docker compose exec -T api python scripts/clean_marketplace.py --file /tmp/catalogo.xlsx --out /tmp/limpio.xlsx
+docker compose exec -T api python scripts/import_catalog.py --file /tmp/limpio.xlsx --dry-run
+``` `check_db.py`
 comprueba la conexión configurada y muestra el latido de stock.
 
 ### Frontend sin Docker
@@ -233,7 +255,8 @@ Las variables más importantes. La lista completa, comentada, está en `.env.exa
 |---|---|
 | `SECRET_KEY` | Firma de los JWT (mínimo 32 caracteres) |
 | `ENV`, `DEBUG` | `production` activa HSTS; `DEBUG=false` oculta `/docs` |
-| `DATABASE_URL` | Conexión a Supabase; si está vacía se usan las `POSTGRES_*` del Docker local |
+| `DATABASE_URL` | Conexión a la base de Supabase (cadena del *Session pooler*, puerto 5432). Si está vacía se usan las `POSTGRES_*` del Docker local |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | API de Supabase: Storage (portadas) y el latido de `/health`. **No** conectan la base de datos |
 | `BACKEND_CORS_ORIGINS`, `PUBLIC_SITE_URL` | Orígenes permitidos y URL pública del sitio |
 | `PAYMENT_PROVIDER` | `manual` para transferencia (flujo activo). **Ojo:** el valor por defecto y el de `.env.example` es `mercadopago`, hay que cambiarlo |
 | `DB_KEEPALIVE_SECONDS` | Cada cuánto la API consulta la base para mantener viva la sesión de Supabase (300; `0` lo apaga) |
@@ -242,7 +265,7 @@ Las variables más importantes. La lista completa, comentada, está en `.env.exa
 | `SHIPPING_COST`, `FREE_SHIPPING_FROM` | Envío fijo y umbral de envío gratis (CLP) |
 | `SELLER_NAME`, `SELLER_EMAIL`, `SELLER_PHONE` | Datos del vendedor mostrados en el sitio |
 | `SMTP_*`, `MAIL_FROM` | Correo saliente (Mailhog en local) |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_STORAGE_BUCKET` | Subida de portadas (bucket `product-covers`) |
+| `SUPABASE_STORAGE_BUCKET` | Bucket público de portadas (`product-covers`) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS` | Vida de los tokens (30 min / 7 días) |
 
 > `.env` contiene secretos y no se versiona. Si una clave se filtra, rótala.

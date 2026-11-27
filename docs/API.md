@@ -657,6 +657,7 @@ Prefijo: `/api/admin`. Todas las rutas exigen rol `admin`. Los parámetros marca
 | Método | Ruta | Resumen |
 |---|---|---|
 | GET | `/admin/dashboard` | KPIs |
+| GET | `/admin/inventory` | Inventario completo, paginado y ordenable |
 | GET | `/admin/inventory/low-stock` | Productos con poco stock |
 | PATCH | `/admin/inventory/{product_id}` | Ajuste manual de stock |
 | GET | `/admin/inventory/movements/{product_id}` | Historial de movimientos |
@@ -679,6 +680,32 @@ Prefijo: `/api/admin`. Todas las rutas exigen rol `admin`. Los parámetros marca
 
 `revenue_this_month` suma el total de los pedidos `paid` con `paid_at` desde el día 1 del mes (UTC).
 `low_stock_alerts` cuenta productos activos con 5 o menos unidades disponibles.
+
+### `GET /admin/inventory`
+
+Lista el inventario de todos los productos; es lo que usa la pestaña Inventario del panel.
+
+| Parámetro | Tipo | Defecto | Descripción |
+|---|---|---|---|
+| `q` | string (máx. 80) | — | Busca en título y SKU |
+| `threshold` | int ≥ 0 | — | Si va, solo productos con `available <= threshold` |
+| `include_inactive` | boolean | `false` | Incluye productos desactivados |
+| `sort` | `title` \| `sku` \| `total` \| `reserved` \| `available` | `available` | Columna de orden |
+| `order` | `asc` \| `desc` | `asc` | Sentido; a igualdad, desempata por título |
+| `page` | int ≥ 1 | 1 | |
+| `size` | int 0–100 | 20 | **`0` = todos** (sin paginar; `page` vuelve como 1) |
+
+```json
+{
+  "items": [
+    { "product_id": "0b9f…", "sku": "DEMO-001", "title": "Berserk 1", "is_active": true,
+      "quantity": 8, "reserved": 2, "available": 8, "total": 10 }
+  ],
+  "total": 65, "page": 1, "size": 20
+}
+```
+
+`total` (por fila) es lo que hay en bodega: `quantity + reserved`.
 
 ### `GET /admin/inventory/low-stock`
 

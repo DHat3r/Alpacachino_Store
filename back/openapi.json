@@ -1509,6 +1509,138 @@
         }
       }
     },
+    "/api/admin/inventory": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Inventory",
+        "description": "Inventario completo, paginado y ordenado en el servidor.",
+        "operationId": "list_inventory_api_admin_inventory_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Busca en título y SKU",
+              "title": "Q"
+            },
+            "description": "Busca en título y SKU"
+          },
+          {
+            "name": "threshold",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo productos con disponible <= threshold",
+              "title": "Threshold"
+            },
+            "description": "Solo productos con disponible <= threshold"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(title|sku|total|reserved|available)$",
+              "default": "available",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(asc|desc)$",
+              "default": "asc",
+              "title": "Order"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 0,
+              "description": "0 = todos",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "0 = todos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/inventory/{product_id}": {
       "patch": {
         "tags": [
@@ -1546,8 +1678,7 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Reason"
+              "$ref": "#/components/schemas/MovementReason"
             }
           },
           {
@@ -3434,6 +3565,19 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MovementReason": {
+        "type": "string",
+        "enum": [
+          "sale",
+          "reservation",
+          "restock",
+          "adjustment",
+          "import",
+          "reservation_released",
+          "sale_confirmed"
+        ],
+        "title": "MovementReason"
+      },
       "OrderItemOut": {
         "properties": {
           "id": {
@@ -4198,7 +4342,7 @@
           "available_stock": {
             "type": "integer",
             "title": "Available Stock",
-            "description": "Stock realmente comprable (total menos reservas activas).",
+            "description": "Stock realmente comprable: ``quantity`` ya excluye lo reservado.",
             "readOnly": true
           }
         },

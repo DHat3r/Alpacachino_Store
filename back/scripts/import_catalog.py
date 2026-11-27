@@ -1,6 +1,7 @@
 """Excel import script with validation, dry-run, and idempotency."""
 
 import argparse
+import re
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -11,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd
 from sqlalchemy import select
 
+from app.core.text import slugify
 from app.db.session import SessionLocal
 from app.models.product import Product, Category, Inventory
 
@@ -27,6 +29,21 @@ def load_dataframe(path: Path) -> pd.DataFrame:
     return df
 
 
+def _category(db, name: str) -> Category:
+    """Busca la categoría por nombre o por slug; si no existe, la crea."""
+    name = name.strip()
+    category = db.scalar(
+        select(Category).where(
+            (Category.name == name) | (Category.slug == slugify(name))
+        )
+    )
+    if not category:
+        category = Category(name=name, slug=slugify(name))
+        db.add(category)
+        db.flush()
+    return category
+
+
 def run(path: Path, dry_run: bool, limit: int | None = None) -> None:
     df = load_dataframe(path)
     db = SessionLocal()
@@ -39,7 +56,8 @@ def run(path: Path, dry_run: bool, limit: int | None = None) -> None:
 
             sku = str(row["sku"]).strip()
             try:
-                price = Decimal(str(row["precio"]).replace(".", "").replace(",", "") or "0")
+                # Acepta "12990", "12.990" o "$12.990" (CLP no tiene decimales).
+                price = Decimal(re.sub(r"[^\d]", "", str(row["precio"])) or "0")
                 stock = int(float(row["stock"] or 0))
             except (ValueError, ArithmeticError):
                 print(f"[ERROR] fila {idx + 2}: precio/stock inválido → {sku}")
@@ -51,23 +69,20 @@ def run(path: Path, dry_run: bool, limit: int | None = None) -> None:
                 skipped += 1
                 continue
 
+            category = _category(db, row.get("categoria") or "General")
             product = db.scalar(select(Product).where(Product.sku == sku))
             if product:
                 product.title = row["titulo"] or product.title
                 product.price = price
                 product.author = row.get("autor") or product.author
+                product.publisher = row.get("editorial") or product.publisher
+                product.description = row.get("descripcion") or product.description
+                product.category_id = category.id
                 if product.inventory:
-                    product.inventory.quantity = stock
+                    # «stock» es lo que hay en bodega; quantity excluye lo reservado.
+                    product.inventory.quantity = max(stock - product.inventory.reserved, 0)
                 updated += 1
             else:
-                category_name = (row.get("categoria") or "General").strip()
-                category = db.scalar(select(Category).where(Category.name == category_name))
-                if not category:
-                    from app.core.text import slugify
-                    category = Category(name=category_name, slug=slugify(category_name))
-                    db.add(category)
-                    db.flush()
-
                 product = Product(
                     sku=sku,
                     title=row["titulo"],
