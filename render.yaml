@@ -39,7 +39,7 @@ services:
           name: alpacachino-redis
           property: connectionString
       - key: BACKEND_CORS_ORIGINS
-        sync: false                      # https://alpacachino.vercel.app
+        sync: false                      # https://alpacachino.com,https://www.alpacachino.com
       - key: PUBLIC_SITE_URL
         sync: false
       - key: PUBLIC_API_URL
@@ -51,6 +51,34 @@ services:
       - key: WEBPAY_COMMERCE_CODE
         sync: false
       - key: WEBPAY_API_KEY
+        sync: false
+      # Pago: transferencia manual. Sin esta variable el valor por defecto es mercadopago.
+      - key: PAYMENT_PROVIDER
+        value: manual
+      - key: BANK_NAME
+        sync: false
+      - key: BANK_ACCOUNT_TYPE
+        value: Cuenta corriente
+      - key: BANK_ACCOUNT_NUMBER
+        sync: false
+      - key: BANK_HOLDER
+        sync: false
+      - key: BANK_RUT
+        sync: false
+      - key: BANK_EMAIL
+        sync: false
+      - key: SELLER_EMAIL
+        sync: false
+      - key: SELLER_PHONE
+        sync: false
+      # Supabase (solo las usa el backend)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_JWKS_URL
         sync: false
 
   # ── Worker Celery ────────────────────────────────────────────
@@ -103,4 +131,32 @@ envVarGroups:
       - key: PUBLIC_SITE_URL
         sync: false
       - key: PUBLIC_API_URL
+        sync: false
+      # Pago: transferencia manual. Sin esta variable el valor por defecto es mercadopago.
+      - key: PAYMENT_PROVIDER
+        value: manual
+      - key: BANK_NAME
+        sync: false
+      - key: BANK_ACCOUNT_TYPE
+        value: Cuenta corriente
+      - key: BANK_ACCOUNT_NUMBER
+        sync: false
+      - key: BANK_HOLDER
+        sync: false
+      - key: BANK_RUT
+        sync: false
+      - key: BANK_EMAIL
+        sync: false
+      - key: SELLER_EMAIL
+        sync: false
+      - key: SELLER_PHONE
+        sync: false
+      # Supabase (solo las usa el backend)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_JWKS_URL
         sync: false
