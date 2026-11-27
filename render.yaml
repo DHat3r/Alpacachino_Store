@@ -81,31 +81,10 @@ services:
       - key: SUPABASE_JWKS_URL
         sync: false
 
-  # ── Worker Celery ────────────────────────────────────────────
-  - type: worker
-    name: alpacachino-worker
-    runtime: docker
-    plan: starter                        # los workers no tienen plan free
-    region: oregon
-    dockerfilePath: ./back/Dockerfile
-    dockerContext: ./back
-    dockerCommand: celery -A app.tasks worker --loglevel=info --concurrency=2
-    autoDeploy: true
-    envVars:
-      - fromGroup: alpacachino-backend
-
-  # ── Beat (tareas programadas) ────────────────────────────────
-  - type: worker
-    name: alpacachino-beat
-    runtime: docker
-    plan: starter
-    region: oregon
-    dockerfilePath: ./back/Dockerfile
-    dockerContext: ./back
-    dockerCommand: celery -A app.tasks beat --loglevel=info
-    autoDeploy: true
-    envVars:
-      - fromGroup: alpacachino-backend
+  # Worker y beat de Celery: se quitaron para usar solo planes gratuitos (los workers
+  # no tienen plan free). Sin ellos las reservas de stock no vencen solas. Para
+  # volver a agregarlos, recuperar esos servicios y el grupo alpacachino-backend
+  # del historial de git (commit anterior a "chore(deploy): sin worker ni beat").
 
   # ── Redis (broker + backend de resultados) ───────────────────
   - type: redis
@@ -114,49 +93,3 @@ services:
     region: oregon
     maxmemoryPolicy: noeviction
     ipAllowList: []
-
-envVarGroups:
-  - name: alpacachino-backend
-    envVars:
-      - key: ENV
-        value: production
-      - key: DEBUG
-        value: "false"
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        sync: false
-      - key: BACKEND_CORS_ORIGINS
-        sync: false
-      - key: PUBLIC_SITE_URL
-        sync: false
-      - key: PUBLIC_API_URL
-        sync: false
-      # Pago: transferencia manual. Sin esta variable el valor por defecto es mercadopago.
-      - key: PAYMENT_PROVIDER
-        value: manual
-      - key: BANK_NAME
-        sync: false
-      - key: BANK_ACCOUNT_TYPE
-        value: Cuenta corriente
-      - key: BANK_ACCOUNT_NUMBER
-        sync: false
-      - key: BANK_HOLDER
-        sync: false
-      - key: BANK_RUT
-        sync: false
-      - key: BANK_EMAIL
-        sync: false
-      - key: SELLER_EMAIL
-        sync: false
-      - key: SELLER_PHONE
-        sync: false
-      # Supabase (solo las usa el backend)
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_PUBLISHABLE_KEY
-        sync: false
-      - key: SUPABASE_SECRET_KEY
-        sync: false
-      - key: SUPABASE_JWKS_URL
-        sync: false
