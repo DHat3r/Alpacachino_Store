@@ -236,12 +236,7 @@ export default function IntegracionesTab() {
       payload,
     }: {
       platform: PlatformId;
-      payload: {
-        credential_1: string | null;
-        credential_2: string | null;
-        credential_3: string | null;
-        credential_4: string | null;
-      };
+      payload: Partial<Record<PlatformField["key"], string | null>>;
     }) => {
       const res = await api.put(`/admin/integrations/${platform}`, payload);
       return res.data;
