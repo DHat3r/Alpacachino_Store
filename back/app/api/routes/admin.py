@@ -1,6 +1,8 @@
 """Admin panel routes: dashboard, inventory adjustments, user management."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime, timezone
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,7 @@ from app.models.user import User, UserRole
 from app.models.product import Product, Inventory
 from app.models.order import Order, OrderStatus
 from app.models.inventory_movement import InventoryMovement, MovementReason
+from app.models.integration import PlatformIntegration, PlatformType
 from app.services import inventory as inv_service
 from app.schemas.product import ProductOut
 
@@ -253,3 +256,98 @@ def toggle_user_active(
     user.is_active = not user.is_active
     db.commit()
     return {"id": user.id, "is_active": user.is_active}
+
+
+class IntegrationUpdate(BaseModel):
+    credential_1: str | None = None
+    credential_2: str | None = None
+    credential_3: str | None = None
+    credential_4: str | None = None
+
+
+PLATFORMS_ORDER = [
+    PlatformType.FACEBOOK,
+    PlatformType.INSTAGRAM,
+    PlatformType.MERCADO_LIBRE,
+    PlatformType.METHA,
+]
+
+
+def _mask_credential(val: str | None) -> str | None:
+    if not val:
+        return None
+    return f"****{val[-4:]}"
+
+
+def _format_integration(platform: PlatformType, row: PlatformIntegration | None) -> dict:
+    return {
+        "platform": platform.value,
+        "is_active": row.is_active if row else False,
+        "is_connected": bool(row and row.is_active),
+        "credential_1_masked": _mask_credential(row.credential_1) if row else None,
+        "credential_2_masked": _mask_credential(row.credential_2) if row else None,
+        "credential_3_masked": _mask_credential(row.credential_3) if row else None,
+        "credential_4_masked": _mask_credential(row.credential_4) if row else None,
+        "connected_at": row.connected_at.isoformat() if (row and row.connected_at) else None,
+    }
+
+
+@router.get("/integrations")
+def list_integrations(
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    rows = db.query(PlatformIntegration).all()
+    rows_by_platform = {
+        (row.platform.value if hasattr(row.platform, "value") else str(row.platform)): row
+        for row in rows
+    }
+    return [
+        _format_integration(p, rows_by_platform.get(p.value))
+        for p in PLATFORMS_ORDER
+    ]
+
+
+@router.put("/integrations/{platform}")
+def update_integration(
+    platform: PlatformType,
+    body: IntegrationUpdate = Body(...),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    existing = db.query(PlatformIntegration).filter(PlatformIntegration.platform == platform).first()
+    now = datetime.now(timezone.utc)
+    if not existing:
+        existing = PlatformIntegration(
+            platform=platform,
+            is_active=True,
+            credential_1=body.credential_1,
+            credential_2=body.credential_2,
+            credential_3=body.credential_3,
+            credential_4=body.credential_4,
+            connected_at=now,
+        )
+        db.add(existing)
+    else:
+        existing.is_active = True
+        update_data = body.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(existing, field, value)
+        existing.connected_at = now
+
+    db.commit()
+    db.refresh(existing)
+    return _format_integration(platform, existing)
+
+
+@router.delete("/integrations/{platform}")
+def delete_integration(
+    platform: PlatformType,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    existing = db.query(PlatformIntegration).filter(PlatformIntegration.platform == platform).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    return {"platform": platform.value, "disconnected": True}
