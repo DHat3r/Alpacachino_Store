@@ -122,7 +122,7 @@ export function ErrorCarga({
 
 export function FichaSkeleton() {
   return (
-    <div className="animate-pulse">
+    <div aria-hidden="true">
       <div className="aspect-[3/4] rounded-ficha bg-nube-hondo" />
       <div className="mt-3 h-3 w-1/3 rounded bg-nube-hondo" />
       <div className="mt-2 h-4 w-4/5 rounded bg-nube-hondo" />
