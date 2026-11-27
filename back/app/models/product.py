@@ -88,8 +88,13 @@ class Inventory(Base):
     )
 
     def available(self) -> int:
-        """Stock disponible real (excluye reservado)."""
-        return max(self.quantity - self.reserved, 0)
+        """Stock que se puede comprar.
+
+        ``quantity`` ya excluye lo reservado: la reserva lo descuenta de
+        ``quantity`` y lo suma a ``reserved``. Restar ``reserved`` otra vez
+        contaría la reserva dos veces.
+        """
+        return max(self.quantity, 0)
 
     def __repr__(self) -> str:
         return f"<Inventory pid={self.product_id} qty={self.quantity} reserved={self.reserved}>"

@@ -17,8 +17,8 @@ def test_listado_y_stock_disponible(client: TestClient, product_factory):
     assert item["sku"] == "MANGA-001"
     assert item["inventory_quantity"] == 10
     assert item["inventory_reserved"] == 3
-    # El stock disponible ahora se serializa (computed field)
-    assert item["available_stock"] == 7
+    # quantity ya excluye lo reservado: el disponible es quantity, no quantity - reserved.
+    assert item["available_stock"] == 10
 
 
 def test_busqueda_por_titulo_y_autor(client: TestClient, product_factory):
@@ -61,7 +61,7 @@ def test_filtro_por_precio(client: TestClient, product_factory):
 
 def test_filtro_solo_con_stock(client: TestClient, product_factory):
     product_factory(sku="CON-STOCK", stock=5)
-    product_factory(sku="AGOTADO", stock=2, reserved=2)
+    product_factory(sku="AGOTADO", stock=0, reserved=2)
 
     res = client.get("/api/products", params={"in_stock": True})
     assert [i["sku"] for i in res.json()["items"]] == ["CON-STOCK"]

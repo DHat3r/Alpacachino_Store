@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -11,7 +11,7 @@ from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.models.product import Product, Inventory
 from app.models.order import Order, OrderStatus
-from app.models.inventory_movement import InventoryMovement
+from app.models.inventory_movement import InventoryMovement, MovementReason
 from app.models.integration import PlatformIntegration, PlatformType
 from app.services import inventory as inv_service
 from app.schemas.product import ProductOut
@@ -38,7 +38,7 @@ def dashboard(db: Session = Depends(get_db), _=Depends(require_admin)):
     # Low stock alerts
     low_stock = db.query(Inventory).join(Product).filter(
         Product.is_active == True,
-        (Inventory.quantity - Inventory.reserved) <= 5
+        Inventory.quantity <= 5
     ).count()
 
     return {
@@ -55,7 +55,7 @@ def dashboard(db: Session = Depends(get_db), _=Depends(require_admin)):
 def low_stock(threshold: int = Query(5, ge=0), db: Session = Depends(get_db), _=Depends(require_admin)):
     items = db.query(Inventory).join(Product).filter(
         Product.is_active == True,
-        (Inventory.quantity - Inventory.reserved) <= threshold
+        Inventory.quantity <= threshold
     ).all()
 
     return [
@@ -71,11 +71,76 @@ def low_stock(threshold: int = Query(5, ge=0), db: Session = Depends(get_db), _=
     ]
 
 
+# Columnas por las que se puede ordenar el inventario. ``total`` es lo que hay
+# en bodega: ``quantity`` ya excluye lo reservado.
+_INVENTORY_SORT = {
+    "title": Product.title,
+    "sku": Product.sku,
+    "total": Inventory.quantity + Inventory.reserved,
+    "reserved": Inventory.reserved,
+    "available": Inventory.quantity,
+}
+
+
+@router.get("/inventory")
+def list_inventory(
+    q: str | None = Query(None, max_length=80, description="Busca en título y SKU"),
+    threshold: int | None = Query(
+        None, ge=0, description="Solo productos con disponible <= threshold"
+    ),
+    include_inactive: bool = False,
+    sort: str = Query("available", pattern="^(title|sku|total|reserved|available)$"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=0, le=100, description="0 = todos"),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Inventario completo, paginado y ordenado en el servidor."""
+    stmt = db.query(Inventory, Product).join(Product, Inventory.product_id == Product.id)
+    if not include_inactive:
+        stmt = stmt.filter(Product.is_active.is_(True))
+    if threshold is not None:
+        stmt = stmt.filter(Inventory.quantity <= threshold)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.filter(or_(Product.title.ilike(like), Product.sku.ilike(like)))
+
+    column = _INVENTORY_SORT[sort]
+    stmt = stmt.order_by(
+        column.asc() if order == "asc" else column.desc(), Product.title.asc()
+    )
+
+    total = stmt.count()
+    if size:
+        stmt = stmt.offset((page - 1) * size).limit(size)
+    rows = stmt.all()
+
+    return {
+        "items": [
+            {
+                "product_id": str(inv.product_id),
+                "sku": product.sku,
+                "title": product.title,
+                "is_active": product.is_active,
+                "quantity": inv.quantity,
+                "reserved": inv.reserved,
+                "available": inv.available(),
+                "total": inv.quantity + inv.reserved,
+            }
+            for inv, product in rows
+        ],
+        "total": total,
+        "page": page if size else 1,
+        "size": size,
+    }
+
+
 @router.patch("/inventory/{product_id}")
 def adjust_inventory(
     product_id: str,
     delta: int,
-    reason: str,
+    reason: MovementReason,
     reference: str | None = None,
     db: Session = Depends(get_db),
     user = Depends(require_admin),

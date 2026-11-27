@@ -77,8 +77,8 @@ class ProductOut(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def available_stock(self) -> int:
-        """Stock realmente comprable (total menos reservas activas)."""
-        return max(self.inventory_quantity - self.inventory_reserved, 0)
+        """Stock realmente comprable: ``quantity`` ya excluye lo reservado."""
+        return max(self.inventory_quantity, 0)
 
 
 class ProductPage(BaseModel):
