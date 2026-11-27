@@ -260,7 +260,7 @@
     transform: translate(0, -170%) rotate(-25deg);
     opacity: 0;
   }
-  12% {
+  22% {
     opacity: 1;
   }
   58% {
@@ -294,5 +294,5 @@
 }
 
 .alpaca-sombrero--cae {
-  animation: sombrero-vuela 2.6s cubic-bezier(0.34, 0.08, 0.28, 1) both;
+  animation: sombrero-vuela 4.2s cubic-bezier(0.34, 0.08, 0.28, 1) both;
 }
